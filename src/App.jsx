@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Ico from './icons.jsx'
-import { ArrowDownRight, ArrowUpRight, Landmark, ReceiptText, Menu as MenuIcon, ChevronRight, ChevronLeft, BarChart3, PieChart } from 'lucide-react'
+import { Search, SlidersHorizontal, Plus, ChevronDown, ArrowLeftRight, ArrowDownRight, ArrowUpRight, Landmark, ReceiptText, Menu as MenuIcon, ChevronRight, ChevronLeft, BarChart3, PieChart } from 'lucide-react'
 import { seed } from './seed.js'
 import { pull, push, getToken, setToken, clearToken } from './sync.js'
 import { hashPw, randHex, fmt, uid, hm, evalExpr, press, periodRange, shiftAnchor, periodLabel, toCSV, startOfDay, CURRENCIES, SYM, pad } from './util.js'
@@ -363,7 +363,7 @@ function Report({ ctx }) {
             {data.map((d) => (
               <div key={d.id} className="rep">
                 <div className="bar" style={{ width: `${(d.v / (data[0].v || 1)) * 100}%`, background: d.color }} />
-                <div className="line"><span className="lnk"><i className="ic"><Ico icon={d.icon} size={18} /></i> {d.name}</span><span><b>{Math.round((d.v / total) * 100)}%</b><br /><i className={type}>{fmt(d.v, 'MDL')}</i></span></div>
+                <div className="line"><span className="lk"><i className="ic"><Ico icon={d.icon} size={18} /></i> {d.name}</span><span><b>{Math.round((d.v / total) * 100)}%</b><br /><i className={type}>{fmt(d.v, 'MDL')}</i></span></div>
               </div>
             ))}
             </>)}
@@ -375,7 +375,7 @@ function Report({ ctx }) {
               const lim = s.budgets[c.id], sp = spentM(c.id), pct = lim ? Math.min(100, (sp / lim) * 100) : 0
               return (
                 <div key={c.id} className="bud" onClick={() => setLimit(c)}>
-                  <div className="line"><span className="lnk"><i className="ic"><Ico icon={c.icon} size={18} /></i> {c.name}</span><span>{lim ? <><b className={sp > lim ? 'expense' : ''}>{fmt(sp, 'MDL')}</b> / {fmt(lim, 'MDL')}</> : <small>{sp ? fmt(sp, 'MDL') + ' · ' : ''}лимит не задан</small>}</span></div>
+                  <div className="line"><span className="lk"><i className="ic"><Ico icon={c.icon} size={18} /></i> {c.name}</span><span>{lim ? <><b className={sp > lim ? 'expense' : ''}>{fmt(sp, 'MDL')}</b> / {fmt(lim, 'MDL')}</> : <small>{sp ? fmt(sp, 'MDL') + ' · ' : ''}лимит не задан</small>}</span></div>
                   {lim > 0 && <div className="track"><div style={{ width: pct + '%', background: sp > lim ? '#e53935' : '#4caf50' }} /></div>}
                 </div>
               )
@@ -435,6 +435,10 @@ function Feed({ ctx }) {
   const { s, up, setModal } = ctx
   const [anchor, setAnchor] = useState(new Date())
   const [accF, setAccF] = useState('all')
+  const [q, setQ] = useState('')
+  const [showQ, setShowQ] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [tf, setTf] = useState('all')
   const [from, to] = periodRange('month', anchor)
   const accOf = (id) => s.accounts.find((a) => a.id === id)
   const catOf = (id) => s.categories.find((c) => c.id === id)
@@ -471,6 +475,43 @@ function Feed({ ctx }) {
     })
   }
   const del = (t) => confirm(t.type === 'transfer' ? 'Удалить перевод?' : 'Удалить операцию?') && up((p) => ({ transactions: p.transactions.filter((x) => x.id !== t.id) }))
+  if ((s.style || 'maib') === 'maib') {
+    const ql = q.trim().toLowerCase()
+    const vis = list.filter((t) => (tf === 'all' || t.type === tf) && (!ql || ((t.note || '') + ' ' + (catOf(t.categoryId)?.name || '')).toLowerCase().includes(ql)))
+    const dstr = (ts) => { const d = new Date(ts); return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}` }
+    const TF = ['all', 'expense', 'income', 'transfer'], TFL = { all: 'Все операции', expense: 'Расходы', income: 'Доходы', transfer: 'Переводы' }
+    return (
+      <>
+        <Header title="Транзакции" ctx={ctx} right={<button className="lnk" onClick={() => ctx.setRoute('report')} title="Отчёт"><BarChart3 size={22} /></button>} />
+        <div className="scroll">
+          <div className="mf-top">
+            <select className="mf-acc" value={accF} onChange={(e) => setAccF(e.target.value)}>
+              <option value="all">Все счета</option>
+              {s.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.archived ? ' (архив)' : ''}</option>)}
+            </select>
+            <button className={'mf-ib' + (showQ || q ? ' on' : '')} onClick={() => setShowQ((v) => !v)} title="Поиск"><Search size={22} /></button>
+            <button className={'mf-ib' + (tf !== 'all' ? ' on' : '')} onClick={() => { const n = TF[(TF.indexOf(tf) + 1) % TF.length]; setTf(n) }} title={TFL[tf]}><SlidersHorizontal size={22} /></button>
+            <button className={'mf-ib' + (showAdd ? ' on' : '')} onClick={() => setShowAdd((v) => !v)} title="Добавить"><Plus size={24} /></button>
+          </div>
+          {showQ && <input className="mf-search" autoFocus placeholder="Поиск по заметке и категории" value={q} onChange={(e) => setQ(e.target.value)} />}
+          {tf !== 'all' && <div className="mf-add"><button onClick={() => setTf('all')}>Фильтр: {TFL[tf]} ✕</button></div>}
+          {showAdd && <div className="mf-add"><button onClick={() => { setShowAdd(false); addOp('expense') }}>− Расход</button><button onClick={() => { setShowAdd(false); addOp('income') }}>+ Доход</button><button onClick={() => { setShowAdd(false); openTransfer(ctx, accF === 'all' ? undefined : accF) }}>⇄ Перевод</button></div>}
+          <div className="mf-month"><button onClick={() => setAnchor((a) => shiftAnchor('month', a, -1))}><ChevronLeft size={20} /></button><b>{new Date(anchor).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</b><span>{fmt(total, cur)}<button onClick={() => setAnchor((a) => shiftAnchor('month', a, 1))}><ChevronRight size={20} /></button></span></div>
+          {vis.map((t) => {
+            const xf = t.type === 'transfer', c = catOf(t.categoryId), a = accOf(xf ? t.fromAccountId : t.accountId), ta = accOf(t.toAccountId)
+            return (
+              <div key={t.id} className="mf-row" onClick={() => ctx.openEdit(t.id)}>
+                <span className="mf-ic">{xf ? <ArrowLeftRight size={22} strokeWidth={1.75} /> : <Ico icon={c?.icon} />}</span>
+                <div className="mf-mid"><div>{xf ? `${a?.name} → ${ta?.name}` : t.note || c?.name}</div><small>{dstr(t.ts)}{t.note && !xf ? ' · ' + c?.name : ''}{' · '}{xf ? hm(t.ts) : a?.name}</small></div>
+                <div className={'mf-am ' + (t.type === 'income' ? 'income' : '')}>{t.type === 'income' ? '+' : xf ? '' : '−'}{new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(t.amount)}<small>{a?.currency}</small></div>
+              </div>
+            )
+          })}
+          {!vis.length && <p className="empty">Нет операций</p>}
+        </div>
+      </>
+    )
+  }
   return (
     <>
       <Header title="Лента" ctx={ctx} right={
