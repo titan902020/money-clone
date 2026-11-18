@@ -48,6 +48,7 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
       {route === 'report' && <Report ctx={ctx} />}
       {route === 'menu' && <Menu ctx={ctx} />}
       {route === 'accounts' && <Accounts ctx={ctx} />}
+      {route === 'feed' && <Feed ctx={ctx} />}
       {route === 'loans' && <Loans ctx={ctx} />}
       {route === 'recurring' && <Recurring ctx={ctx} />}
       {route === 'settings' && <Settings ctx={ctx} />}
@@ -274,7 +275,7 @@ function Menu({ ctx }) {
     const blob = new Blob(['﻿' + toCSV(s)], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'money-ok-export.csv'; a.click()
   }
-  const items = [['🏦', 'Счета', () => setRoute('accounts')], ['💳', 'Кредиты', () => setRoute('loans')], ['🔁', 'Автоплатежи', () => setRoute('recurring')], ['📤', 'Экспорт в CSV', dl], ['⚙️', 'Настройки', () => setRoute('settings')]]
+  const items = [['🏦', 'Счета', () => setRoute('accounts')], ['🧾', 'Лента', () => setRoute('feed')], ['💳', 'Кредиты', () => setRoute('loans')], ['🔁', 'Автоплатежи', () => setRoute('recurring')], ['📤', 'Экспорт в CSV', dl], ['⚙️', 'Настройки', () => setRoute('settings')]]
   return (
     <>
       <Header title="Меню" ctx={ctx} />
@@ -282,6 +283,117 @@ function Menu({ ctx }) {
         <p className="hint">{ctx.sync === 'ok' ? '☁ Синхронизировано' : ctx.sync === 'wait' ? '☁ Сохраняю…' : ctx.sync === 'offline' ? '⚠ Нет связи, сохранится позже' : ''}</p>
         {items.map(([i, l, f]) => <button key={l} className="mrow" onClick={f}><span>{i}</span>{l}<em>›</em></button>)}
         <button className="mrow" onClick={ctx.onLogout}><span>🔒</span>Выйти<em>›</em></button>
+      </div>
+    </>
+  )
+}
+
+function openTransfer(ctx, fromId) {
+  const { s, up, setModal } = ctx
+  const accOpts = { options: s.accounts.map((a) => a.id), labels: Object.fromEntries(s.accounts.map((a) => [a.id, a.name])) }
+  if (s.accounts.length < 2) return alert('Нужно минимум два счёта')
+  const fi = Math.max(0, s.accounts.findIndex((a) => a.id === fromId))
+  setModal({
+    title: '⇄ Перевод между счетами',
+    fields: [
+      { key: 'from', label: 'Откуда', ...accOpts, def: s.accounts[fi].id },
+      { key: 'to', label: 'Куда', ...accOpts, def: s.accounts[fi === 0 ? 1 : 0].id },
+      { key: 'amount', label: 'Сумма списания', type: 'number' },
+      { key: 'toAmount', label: 'Сумма зачисления (пусто — по курсу)', type: 'number' },
+      { key: 'note', label: 'Заметка' },
+    ],
+    onSubmit: (v) => {
+      const fa = s.accounts.find((x) => x.id === v.from), ta = s.accounts.find((x) => x.id === v.to), amount = +v.amount
+      if (!fa || !ta || fa.id === ta.id) return alert('Выберите два разных счёта')
+      if (!(amount > 0)) return alert('Введите сумму больше 0')
+      const toAmount = +v.toAmount > 0 ? +v.toAmount : Math.round(amount * (s.rates[fa.currency] || 1) / (s.rates[ta.currency] || 1) * 100) / 100
+      up((p) => ({ transactions: [...p.transactions, { id: uid(), type: 'transfer', fromAccountId: fa.id, toAccountId: ta.id, amount, toAmount, ts: Date.now(), note: v.note || '' }] }))
+    },
+  })
+}
+
+function Feed({ ctx }) {
+  const { s, up, setModal } = ctx
+  const [anchor, setAnchor] = useState(new Date())
+  const [accF, setAccF] = useState('all')
+  const [from, to] = periodRange('month', anchor)
+  const accOf = (id) => s.accounts.find((a) => a.id === id)
+  const catOf = (id) => s.categories.find((c) => c.id === id)
+  const inAcc = (t) => accF === 'all' || t.accountId === accF || t.fromAccountId === accF || t.toAccountId === accF
+  // signed effect of a transaction in MDL (all accounts) or in the account's own currency (filtered)
+  const effect = (t) => {
+    if (t.type === 'transfer') {
+      if (accF === 'all') return 0
+      return t.fromAccountId === accF ? -t.amount : t.toAmount ?? t.amount
+    }
+    return t.type === 'income' ? t.amount : -t.amount
+  }
+  const cur = accF === 'all' ? MDL : accOf(accF)?.currency || MDL
+  const conv = (t, v) => accF === 'all' ? toBase(s, v, accOf(t.accountId)?.currency || MDL) : v
+  const list = s.transactions.filter((t) => t.ts >= from.getTime() && t.ts < to.getTime() && inAcc(t)).sort((a, b) => b.ts - a.ts)
+  const days = []
+  list.forEach((t) => { const k = startOfDay(t.ts).getTime(); let x = days.find((y) => y.k === k); if (!x) days.push((x = { k, items: [] })); x.items.push(t) })
+  const bal = balances({ ...s, transactions: s.transactions.filter((t) => t.ts < to.getTime()) })
+  const total = accF === 'all' ? s.accounts.reduce((a, x) => a + toBase(s, bal[x.id], x.currency), 0) : bal[accF] || 0
+  const today = startOfDay(new Date()).getTime()
+  const dayName = (k) => new Date(k).toLocaleDateString('ru-RU', { weekday: 'long' }) + (k === today ? ' · сегодня' : k === today - 864e5 ? ' · вчера' : '')
+  const addOp = (type) => {
+    const cats = s.categories.filter((c) => c.type === type)
+    const accs = accF === 'all' ? s.accounts : s.accounts.filter((a) => a.id === accF)
+    setModal({
+      title: type === 'expense' ? '− Расход' : '+ Доход',
+      fields: [
+        { key: 'acc', label: 'Счёт', options: s.accounts.map((a) => a.id), labels: Object.fromEntries(s.accounts.map((a) => [a.id, a.name])), def: accs[0]?.id },
+        { key: 'cat', label: 'Категория', options: cats.map((c) => c.id), labels: Object.fromEntries(cats.map((c) => [c.id, `${c.icon} ${c.name}`])), def: cats[0]?.id },
+        { key: 'amount', label: 'Сумма', type: 'number' },
+        { key: 'note', label: 'Заметка' },
+      ],
+      onSubmit: (v) => { if (+v.amount > 0 && v.acc) up((p) => ({ transactions: [...p.transactions, { id: uid(), type, accountId: v.acc, categoryId: v.cat, amount: +v.amount, ts: Date.now(), note: v.note || '' }] })) },
+    })
+  }
+  const del = (t) => confirm(t.type === 'transfer' ? 'Удалить перевод?' : 'Удалить операцию?') && up((p) => ({ transactions: p.transactions.filter((x) => x.id !== t.id) }))
+  return (
+    <>
+      <Header title="Лента" back="menu" ctx={ctx} right={
+        <select className="hsel" value={accF} onChange={(e) => setAccF(e.target.value)}>
+          <option value="all">Все</option>
+          {s.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>} />
+      <div className="scroll">
+        <div className="mnav"><button onClick={() => setAnchor((a) => shiftAnchor('month', a, -1))}>‹</button><b>{periodLabel('month', anchor)}</b><button onClick={() => setAnchor((a) => shiftAnchor('month', a, 1))}>›</button></div>
+        <div className="fsum">
+          <div className="fq"><button onClick={() => addOp('expense')} title="Расход">−</button><button onClick={() => addOp('income')} title="Доход">+</button><button onClick={() => openTransfer(ctx, accF === 'all' ? undefined : accF)} title="Перевод">⇄</button></div>
+          <div className="fb"><small>{accF === 'all' ? 'Все счета' : accOf(accF)?.name}</small><b className={total < 0 ? 'expense' : ''}>{fmt(total, cur)}</b></div>
+        </div>
+        {days.map((g) => {
+          const net = g.items.reduce((a, t) => a + conv(t, effect(t)), 0)
+          return (
+            <div key={g.k}>
+              <div className="dayhdr fday"><span className="dn">{new Date(g.k).getDate()}</span><span>{dayName(g.k)}</span><b className={net < 0 ? 'expense' : net > 0 ? 'income' : ''}>{net ? fmt(net, cur) : ''}</b></div>
+              {g.items.map((t) => {
+                if (t.type === 'transfer') {
+                  const fa = accOf(t.fromAccountId), ta = accOf(t.toAccountId)
+                  return (
+                    <div key={t.id} className="row" onClick={() => del(t)}>
+                      <span className="ic">⇄</span>
+                      <div className="mid"><div>Перевод</div><small>{fa?.name} → {ta?.name}{t.note && <u> {t.note}</u>}</small></div>
+                      <div className="rt"><b className="xfer">{fmt(t.amount, fa?.currency)}{fa?.currency !== ta?.currency && ` → ${fmt(t.toAmount ?? t.amount, ta?.currency)}`}</b><small>{hm(t.ts)}</small></div>
+                    </div>
+                  )
+                }
+                const c = catOf(t.categoryId), a = accOf(t.accountId)
+                return (
+                  <div key={t.id} className="row" onClick={() => del(t)}>
+                    <span className="ic">{c?.icon}</span>
+                    <div className="mid"><div>{c?.name}</div><small>{a?.name}{t.note && <u> {t.note}</u>}</small></div>
+                    <div className="rt"><b className={t.type}>{t.type === 'income' ? '' : '−'}{fmt(t.amount, a?.currency)}</b><small>{hm(t.ts)}</small></div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+        {!days.length && <p className="empty">Нет операций</p>}
       </div>
     </>
   )
@@ -296,28 +408,10 @@ function Accounts({ ctx }) {
     onSubmit: (v) => v.name && up((p) => ({ accounts: a ? p.accounts.map((x) => x.id === a.id ? { ...x, name: v.name, currency: v.currency, initial: +v.initial || 0 } : x) : [...p.accounts, { id: uid(), name: v.name, currency: v.currency, initial: +v.initial || 0 }] })),
     onDelete: a && (() => confirm('Удалить счёт и его операции?') && up((p) => ({ accounts: p.accounts.filter((x) => x.id !== a.id), transactions: p.transactions.filter((t) => t.accountId !== a.id && t.fromAccountId !== a.id && t.toAccountId !== a.id) }))),
   })
-  const accOpts = { options: s.accounts.map((a) => a.id), labels: Object.fromEntries(s.accounts.map((a) => [a.id, a.name])) }
-  const transfer = () => s.accounts.length < 2 ? alert('Нужно минимум два счёта') : setModal({
-    title: '⇄ Перевод между счетами',
-    fields: [
-      { key: 'from', label: 'Откуда', ...accOpts, def: s.accounts[0].id },
-      { key: 'to', label: 'Куда', ...accOpts, def: s.accounts[1].id },
-      { key: 'amount', label: 'Сумма списания', type: 'number' },
-      { key: 'toAmount', label: 'Сумма зачисления (пусто — по курсу)', type: 'number' },
-      { key: 'note', label: 'Заметка' },
-    ],
-    onSubmit: (v) => {
-      const fa = s.accounts.find((x) => x.id === v.from), ta = s.accounts.find((x) => x.id === v.to), amount = +v.amount
-      if (!fa || !ta || fa.id === ta.id) return alert('Выберите два разных счёта')
-      if (!(amount > 0)) return alert('Введите сумму больше 0')
-      const toAmount = +v.toAmount > 0 ? +v.toAmount : Math.round(amount * (s.rates[fa.currency] || 1) / (s.rates[ta.currency] || 1) * 100) / 100
-      up((p) => ({ transactions: [...p.transactions, { id: uid(), type: 'transfer', fromAccountId: fa.id, toAccountId: ta.id, amount, toAmount, ts: Date.now(), note: v.note || '' }] }))
-    },
-  })
   const sum = s.accounts.reduce((t, a) => t + toBase(s, bal[a.id], a.currency), 0)
   return (
     <>
-      <Header title="Счета" back="menu" ctx={ctx} right={<><button className="lnk" onClick={transfer} title="Перевод">⇄</button><button className="lnk" onClick={() => form()}>＋</button></>} />
+      <Header title="Счета" back="menu" ctx={ctx} right={<><button className="lnk" onClick={() => openTransfer(ctx)} title="Перевод">⇄</button><button className="lnk" onClick={() => form()}>＋</button></>} />
       <div className="scroll">
         <div className="sum"><h2>Всего: {fmt(sum, 'MDL')}</h2></div>
         {s.accounts.map((a) => <div key={a.id} className="row" onClick={() => form(a)}><span className="ic">🏦</span><div className="mid"><div>{a.name}</div><small>{a.currency}</small></div><div className="rt"><b>{fmt(bal[a.id], a.currency)}</b></div></div>)}

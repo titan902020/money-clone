@@ -2,3 +2,5 @@ node_modules
 dist
 replica
 .DS_Store
+shots/
+mirror*.png
