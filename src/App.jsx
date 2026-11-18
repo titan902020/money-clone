@@ -1,9 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { seed } from './seed.js'
-import { fmt, uid, hm, evalExpr, press, periodRange, shiftAnchor, periodLabel, toCSV, startOfDay, CURRENCIES, SYM, pad } from './util.js'
+import { pull, push, getToken, setToken, clearToken } from './sync.js'
+import { hashPw, randHex, fmt, uid, hm, evalExpr, press, periodRange, shiftAnchor, periodLabel, toCSV, startOfDay, CURRENCIES, SYM, pad } from './util.js'
 
-const KEY = 'money-clone-v1'
-const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || seed() } catch { return seed() } }
+const CACHE = 'mc-cache', SESS = 'mc-sess'
+const readCache = () => { try { return JSON.parse(localStorage.getItem(CACHE)) } catch { return null } }
+const sessOf = (a) => (a?.hash ? 'ok-' + a.hash.slice(0, 24) : '')
+const migrate = (d) => { const b = seed(); return { ...b, ...d, rates: { ...b.rates, ...(d.rates || {}), MDL: 1 }, theme: d.theme || b.theme } }
 
 function applyRecurring(s) {
   const now = new Date(); const cur = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`
@@ -24,14 +27,19 @@ function applyRecurring(s) {
   return changed ? { ...s, recurring, transactions: [...s.transactions, ...added] } : s
 }
 
-export default function App() {
-  const [s, setS] = useState(() => applyRecurring(load()))
+function Main({ s, setS, sync, onLogout, onDisconnect }) {
   const [route, setRoute] = useState('expense')
   const [modal, setModal] = useState(null)
-  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(s)) } catch {} }, [s])
-  useEffect(() => { document.documentElement.dataset.theme = s.dark ? 'dark' : 'light' }, [s.dark])
-  const up = (patch) => setS((p) => ({ ...p, ...(typeof patch === 'function' ? patch(p) : patch) }))
-  const ctx = { s, up, setRoute, setModal }
+  const up = (patch) => setS((p) => ({ ...p, ...(typeof patch === 'function' ? patch(p) : patch), updatedAt: Date.now() }))
+  const updateRates = async (force) => {
+    try {
+      const j = await (await fetch('./rates.json?t=' + Date.now(), { cache: 'no-store' })).json()
+      if (force || j.date !== s.ratesDate) up((p) => ({ rates: { ...p.rates, ...j.rates, MDL: 1 }, ratesDate: j.date }))
+      return j.date
+    } catch { return null }
+  }
+  useEffect(() => { updateRates(false) }, [])
+  const ctx = { s, up, setRoute, setModal, sync, onLogout, onDisconnect, updateRates }
   const main = ['expense', 'income', 'report', 'menu'].includes(route)
   return (
     <div className="phone">
@@ -77,6 +85,7 @@ function balances(s) {
   return b
 }
 const toBase = (s, amt, cur) => amt * (s.rates[cur] || 1)
+const MDL = 'MDL'
 
 function Entry({ ctx, type }) {
   const { s, up, setModal } = ctx
@@ -133,7 +142,7 @@ function Entry({ ctx, type }) {
           const sum = real.reduce((x, t) => x + t.amount, 0)
           return (
             <div key={g.k}>
-              <div className="dayhdr">{real.length ? `${type === 'expense' ? 'Потрачено' : 'Получено'} ${dayName(g.k)}: ${fmt(sum, 'RUB')}` : `Переводы ${dayName(g.k)}`}</div>
+              <div className="dayhdr">{real.length ? `${type === 'expense' ? 'Потрачено' : 'Получено'} ${dayName(g.k)}: ${fmt(sum, 'MDL')}` : `Переводы ${dayName(g.k)}`}</div>
               {g.items.map((t) => {
                 if (t.type === 'transfer') {
                   const fa = accOf(t.fromAccountId), ta = accOf(t.toAccountId)
@@ -208,7 +217,7 @@ function Report({ ctx }) {
   const days = Math.max(1, Math.round((Math.min(to, new Date()) - from) / 864e5) || 1)
   const accSum = accs.reduce((sum, a) => sum + toBase(s, balances(s)[a.id], a.currency), 0)
   const setLimit = (c) => setModal({
-    title: `Лимит: ${c.name} (на месяц)`, fields: [{ key: 'v', label: 'Сумма, ₽ (0 — убрать)', type: 'number', def: s.budgets[c.id] || '' }],
+    title: `Лимит: ${c.name} (на месяц)`, fields: [{ key: 'v', label: 'Сумма, MDL (0 — убрать)', type: 'number', def: s.budgets[c.id] || '' }],
     onSubmit: (v) => up((p) => { const b = { ...p.budgets }; +v.v > 0 ? (b[c.id] = +v.v) : delete b[c.id]; return { budgets: b } }),
   })
   const [mf, mt] = periodRange('month', anchor)
@@ -228,15 +237,15 @@ function Report({ ctx }) {
           <>
             <div className="accsel">
               <select value={accF} onChange={(e) => setAccF(e.target.value)}><option value="all">Все счета</option>{s.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
-              <div>{fmt(accSum, 'RUB')}</div>
+              <div>{fmt(accSum, 'MDL')}</div>
             </div>
             <div className="seg small"><button className={type === 'expense' ? 'on' : ''} onClick={() => setType('expense')}>Расходы</button><button className={type === 'income' ? 'on' : ''} onClick={() => setType('income')}>Доходы</button></div>
-            <div className="sum"><h2 className={type}>Всего {type === 'expense' ? 'потрачено' : 'получено'}: {fmt(total, 'RUB')}</h2><small>в среднем: {fmt(total / days, 'RUB')} в день</small></div>
+            <div className="sum"><h2 className={type}>Всего {type === 'expense' ? 'потрачено' : 'получено'}: {fmt(total, 'MDL')}</h2><small>в среднем: {fmt(total / days, 'MDL')} в день</small></div>
             <Pie data={data} />
             {data.map((d) => (
               <div key={d.id} className="rep">
                 <div className="bar" style={{ width: `${(d.v / (data[0].v || 1)) * 100}%`, background: d.color }} />
-                <div className="line"><span>{d.icon} {d.name}</span><span><b>{Math.round((d.v / total) * 100)}%</b><br /><i className={type}>{fmt(d.v, 'RUB')}</i></span></div>
+                <div className="line"><span>{d.icon} {d.name}</span><span><b>{Math.round((d.v / total) * 100)}%</b><br /><i className={type}>{fmt(d.v, 'MDL')}</i></span></div>
               </div>
             ))}
           </>
@@ -247,7 +256,7 @@ function Report({ ctx }) {
               const lim = s.budgets[c.id], sp = spentM(c.id), pct = lim ? Math.min(100, (sp / lim) * 100) : 0
               return (
                 <div key={c.id} className="bud" onClick={() => setLimit(c)}>
-                  <div className="line"><span>{c.icon} {c.name}</span><span>{lim ? <><b className={sp > lim ? 'expense' : ''}>{fmt(sp, 'RUB')}</b> / {fmt(lim, 'RUB')}</> : <small>{sp ? fmt(sp, 'RUB') + ' · ' : ''}лимит не задан</small>}</span></div>
+                  <div className="line"><span>{c.icon} {c.name}</span><span>{lim ? <><b className={sp > lim ? 'expense' : ''}>{fmt(sp, 'MDL')}</b> / {fmt(lim, 'MDL')}</> : <small>{sp ? fmt(sp, 'MDL') + ' · ' : ''}лимит не задан</small>}</span></div>
                   {lim > 0 && <div className="track"><div style={{ width: pct + '%', background: sp > lim ? '#e53935' : '#4caf50' }} /></div>}
                 </div>
               )
@@ -269,7 +278,11 @@ function Menu({ ctx }) {
   return (
     <>
       <Header title="Меню" ctx={ctx} />
-      <div className="scroll">{items.map(([i, l, f]) => <button key={l} className="mrow" onClick={f}><span>{i}</span>{l}<em>›</em></button>)}</div>
+      <div className="scroll">
+        <p className="hint">{ctx.sync === 'ok' ? '☁ Синхронизировано' : ctx.sync === 'wait' ? '☁ Сохраняю…' : ctx.sync === 'offline' ? '⚠ Нет связи, сохранится позже' : ''}</p>
+        {items.map(([i, l, f]) => <button key={l} className="mrow" onClick={f}><span>{i}</span>{l}<em>›</em></button>)}
+        <button className="mrow" onClick={ctx.onLogout}><span>🔒</span>Выйти<em>›</em></button>
+      </div>
     </>
   )
 }
@@ -279,7 +292,7 @@ function Accounts({ ctx }) {
   const bal = balances(s)
   const form = (a) => setModal({
     title: a ? 'Счёт' : 'Новый счёт',
-    fields: [{ key: 'name', label: 'Название', def: a?.name || '' }, { key: 'currency', label: 'Валюта', options: CURRENCIES, def: a?.currency || 'RUB' }, { key: 'initial', label: 'Начальный остаток', type: 'number', def: a?.initial ?? 0 }],
+    fields: [{ key: 'name', label: 'Название', def: a?.name || '' }, { key: 'currency', label: 'Валюта', options: CURRENCIES, def: a?.currency || 'MDL' }, { key: 'initial', label: 'Начальный остаток', type: 'number', def: a?.initial ?? 0 }],
     onSubmit: (v) => v.name && up((p) => ({ accounts: a ? p.accounts.map((x) => x.id === a.id ? { ...x, name: v.name, currency: v.currency, initial: +v.initial || 0 } : x) : [...p.accounts, { id: uid(), name: v.name, currency: v.currency, initial: +v.initial || 0 }] })),
     onDelete: a && (() => confirm('Удалить счёт и его операции?') && up((p) => ({ accounts: p.accounts.filter((x) => x.id !== a.id), transactions: p.transactions.filter((t) => t.accountId !== a.id && t.fromAccountId !== a.id && t.toAccountId !== a.id) }))),
   })
@@ -306,7 +319,7 @@ function Accounts({ ctx }) {
     <>
       <Header title="Счета" back="menu" ctx={ctx} right={<><button className="lnk" onClick={transfer} title="Перевод">⇄</button><button className="lnk" onClick={() => form()}>＋</button></>} />
       <div className="scroll">
-        <div className="sum"><h2>Всего: {fmt(sum, 'RUB')}</h2></div>
+        <div className="sum"><h2>Всего: {fmt(sum, 'MDL')}</h2></div>
         {s.accounts.map((a) => <div key={a.id} className="row" onClick={() => form(a)}><span className="ic">🏦</span><div className="mid"><div>{a.name}</div><small>{a.currency}</small></div><div className="rt"><b>{fmt(bal[a.id], a.currency)}</b></div></div>)}
       </div>
     </>
@@ -372,15 +385,24 @@ function Recurring({ ctx }) {
 }
 
 function Settings({ ctx }) {
-  const { s, up } = ctx
+  const { s, up, updateRates } = ctx
+  const [msg, setMsg] = useState('')
+  const upd = async () => { setMsg('…'); const d = await updateRates(true); setMsg(d ? 'Курсы BNM на ' + d : 'Не удалось получить курсы') }
   return (
     <>
       <Header title="Настройки" back="menu" ctx={ctx} />
       <div className="scroll">
-        <label className="mrow"><span>🌙</span>Тёмная тема<input type="checkbox" checked={s.dark} onChange={(e) => up({ dark: e.target.checked })} /></label>
-        <h4 className="sec">Курсы валют к ₽</h4>
-        {['USD', 'EUR'].map((c) => <label key={c} className="mrow"><span>{SYM[c]}</span>1 {c} =<input className="num" type="number" value={s.rates[c]} onChange={(e) => up({ rates: { ...s.rates, [c]: +e.target.value || 1 } })} /> ₽</label>)}
-        <button className="mrow danger" onClick={() => confirm('Сбросить все данные к демо-набору?') && up(seed())}><span>♻️</span>Сбросить данные</button>
+        <label className="mrow"><span>🌙</span>Тема
+          <select className="num wide2" value={s.theme || 'dark'} onChange={(e) => up({ theme: e.target.value })}>
+            <option value="dark">Тёмная</option><option value="black">Чёрная (OLED)</option><option value="light">Светлая</option><option value="auto">Как в системе</option>
+          </select></label>
+        <h4 className="sec">Курсы к MDL (BNM{s.ratesDate ? ', ' + s.ratesDate : ''})</h4>
+        {['USD', 'EUR', 'RUB'].map((c) => <label key={c} className="mrow"><span>{SYM[c]}</span>1 {c} =<input className="num" type="number" step="any" value={s.rates[c]} onChange={(e) => up({ rates: { ...s.rates, [c]: +e.target.value || 1 } })} /> MDL</label>)}
+        <button className="mrow" onClick={upd}><span>🏦</span>Обновить курсы с BNM<em>{msg}</em></button>
+        <h4 className="sec">Устройство</h4>
+        <button className="mrow" onClick={ctx.onLogout}><span>🔒</span>Выйти из аккаунта</button>
+        <button className="mrow" onClick={() => confirm('Отключить это устройство от хранилища? Токен GitHub будет удалён здесь.') && ctx.onDisconnect()}><span>🔌</span>Отключить устройство</button>
+        <button className="mrow danger" onClick={() => confirm('Стереть все счета и операции? Логин и пароль сохранятся.') && up({ ...seed(), auth: s.auth, theme: s.theme, rates: s.rates, ratesDate: s.ratesDate })}><span>♻️</span>Начать с нуля</button>
       </div>
     </>
   )
@@ -402,4 +424,129 @@ function FormModal({ title, fields, onSubmit, onClose, onDelete }) {
       </form>
     </div>
   )
+}
+
+function Gate({ title, children }) {
+  return <div className="phone"><div className="gate"><div className="gico">L</div><h2>{title}</h2>{children}</div></div>
+}
+
+export default function App() {
+  const [phase, setPhase] = useState('boot')
+  const [s, setS] = useState(null)
+  const [err, setErr] = useState('')
+  const [sync, setSync] = useState('')
+  const [f, setF] = useState({ token: '', login: '', pw: '', pw2: '' })
+  const sha = useRef(null), skip = useRef(false), timer = useRef(null), sRef = useRef(null), phaseRef = useRef('boot')
+  sRef.current = s; phaseRef.current = phase
+  const theme = s?.theme || 'dark'
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const ap = () => {
+      const t = theme === 'auto' ? (mq.matches ? 'dark' : 'light') : theme
+      document.documentElement.dataset.theme = t
+      document.querySelector('meta[name=theme-color]')?.setAttribute('content', t === 'light' ? '#1f7ab5' : t === 'black' ? '#000000' : '#1b1c1e')
+    }
+    ap(); mq.addEventListener('change', ap); return () => mq.removeEventListener('change', ap)
+  }, [theme])
+  const flush = async () => {
+    const token = getToken(); if (!token || !sRef.current) return
+    setSync('wait')
+    try {
+      if (!sha.current) sha.current = (await pull(token))?.sha || null
+      try { sha.current = await push(token, sRef.current, sha.current) } catch (e) {
+        if (e.status === 409 || e.status === 422) { const r = await pull(token); sha.current = await push(token, sRef.current, r?.sha || null) } else throw e
+      }
+      setSync('ok')
+    } catch { setSync('offline') }
+  }
+  useEffect(() => {
+    if (!s) return
+    try { localStorage.setItem(CACHE, JSON.stringify(s)) } catch {}
+    if (skip.current) { skip.current = false; return }
+    clearTimeout(timer.current); timer.current = setTimeout(flush, 700)
+  }, [s])
+  const finish = (data, push_) => {
+    let d = migrate(data); const r = applyRecurring(d)
+    if (r !== d) { d = { ...r, updatedAt: Date.now() }; push_ = true }
+    skip.current = !push_; setS(d)
+    setPhase(!d.auth ? 'setup' : localStorage.getItem(SESS) === sessOf(d.auth) ? 'app' : 'login')
+  }
+  const connect = async (token) => {
+    setErr('')
+    try {
+      const r = await pull(token); let data, dirty = false
+      if (!r) { data = { ...seed(), updatedAt: Date.now() }; sha.current = await push(token, data, null) } else { data = r.data; sha.current = r.sha }
+      const c = readCache(); if (c && (c.updatedAt || 0) > (data.updatedAt || 0)) { data = c; dirty = true }
+      finish(data, dirty)
+    } catch (e) {
+      const c = readCache()
+      if (e.status === 401 || e.status === 403 || e.status === 404 || !c) { if (e.status === 401 || e.status === 403) clearToken(); setErr(e.status === 404 ? 'Репозиторий money-clone-data не найден или нет доступа' : e.status === 401 ? 'Токен не подходит' : 'Нет связи с GitHub'); setPhase('connect') }
+      else { sha.current = null; setSync('offline'); finish(c, true) }
+    }
+  }
+  useEffect(() => { const t = getToken(); if (t) connect(t); else setPhase('connect') }, [])
+  useEffect(() => {
+    const onVis = async () => {
+      const token = getToken()
+      if (document.visibilityState !== 'visible' || phaseRef.current !== 'app' || !token || timer.current && sync === 'wait') return
+      try {
+        const r = await pull(token)
+        if (r && r.sha !== sha.current) {
+          sha.current = r.sha
+          if ((r.data.updatedAt || 0) > (sRef.current?.updatedAt || 0)) { skip.current = true; setS(migrate(r.data)) }
+        }
+      } catch {}
+    }
+    document.addEventListener('visibilitychange', onVis); return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
+  const logout = () => { localStorage.removeItem(SESS); setF({ ...f, pw: '', pw2: '' }); setPhase('login') }
+  const disconnect = () => { clearToken(); localStorage.removeItem(SESS); localStorage.removeItem(CACHE); setS(null); setPhase('connect') }
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+
+  if (phase === 'boot') return <Gate title="Загрузка…" />
+  if (phase === 'connect') return (
+    <Gate title="Подключение хранилища">
+      <p className="hint">Вставьте токен доступа GitHub к приватному репозиторию money-clone-data. Он хранится только в этом браузере.</p>
+      <form onSubmit={(e) => { e.preventDefault(); const t = f.token.trim(); if (t) { setToken(t); setPhase('boot'); connect(t) } }}>
+        <input className="gin" type="password" placeholder="github_pat_…" autoComplete="off" value={f.token} onChange={set('token')} />
+        {err && <p className="gerr">{err}</p>}
+        <button className="primary wide">Подключить</button>
+      </form>
+    </Gate>
+  )
+  if (phase === 'setup') return (
+    <Gate title="Создайте аккаунт">
+      <p className="hint">Логин и пароль будут общими для всех ваших устройств.</p>
+      <form onSubmit={async (e) => {
+        e.preventDefault()
+        if (f.login.trim().length < 3) return setErr('Логин — минимум 3 символа')
+        if (f.pw.length < 6) return setErr('Пароль — минимум 6 символов')
+        if (f.pw !== f.pw2) return setErr('Пароли не совпадают')
+        const salt = randHex(), hash = await hashPw(f.login, f.pw, salt), auth = { login: f.login.trim(), salt, hash }
+        localStorage.setItem(SESS, sessOf(auth)); setErr(''); setS((p) => ({ ...p, auth, updatedAt: Date.now() })); setF({ ...f, pw: '', pw2: '' }); setPhase('app')
+      }}>
+        <input className="gin" placeholder="Логин" autoComplete="username" value={f.login} onChange={set('login')} />
+        <input className="gin" type="password" placeholder="Пароль" autoComplete="new-password" value={f.pw} onChange={set('pw')} />
+        <input className="gin" type="password" placeholder="Пароль ещё раз" autoComplete="new-password" value={f.pw2} onChange={set('pw2')} />
+        {err && <p className="gerr">{err}</p>}
+        <button className="primary wide">Создать и войти</button>
+      </form>
+    </Gate>
+  )
+  if (phase === 'login') return (
+    <Gate title="Вход">
+      <form onSubmit={async (e) => {
+        e.preventDefault()
+        const a = s.auth, h = await hashPw(f.login, f.pw, a.salt)
+        if (f.login.trim().toLowerCase() !== a.login.toLowerCase() || h !== a.hash) return setErr('Неверный логин или пароль')
+        localStorage.setItem(SESS, sessOf(a)); setErr(''); setF({ ...f, pw: '' }); setPhase('app')
+      }}>
+        <input className="gin" placeholder="Логин" autoComplete="username" value={f.login} onChange={set('login')} />
+        <input className="gin" type="password" placeholder="Пароль" autoComplete="current-password" value={f.pw} onChange={set('pw')} />
+        {err && <p className="gerr">{err}</p>}
+        <button className="primary wide">Войти</button>
+      </form>
+    </Gate>
+  )
+  return <Main s={s} setS={setS} sync={sync} onLogout={logout} onDisconnect={disconnect} />
 }

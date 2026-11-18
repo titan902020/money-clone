@@ -1,8 +1,11 @@
 :root{--bg:#f4f7fb;--card:#fff;--text:#1d2733;--sub:#6b7785;--blue:#1f7ab5;--blue2:#2a86c1;--tile:#b3c9ee;--key:#b5d9f1;--keyop:#1f7ab5;--line:#dfe6ee;--exp:#a9442b;--inc:#2e8b57;--panel:#e9f0f8}
 :root[data-theme=dark]{--bg:#1b1c1e;--card:#232426;--text:#e8eaed;--sub:#9aa1a9;--blue:#1f7ab5;--tile:#4a4c50;--key:#1f6fa0;--keyop:#4a4c50;--line:#34363a;--exp:#ff7043;--inc:#5bd08a;--panel:#2b2c2f}
+
+:root[data-theme=black]{--bg:#000;--card:#0d0d0e;--text:#ececec;--sub:#8e949b;--blue:#1f7ab5;--tile:#2a2b2e;--key:#1f6fa0;--keyop:#2a2b2e;--line:#232426;--exp:#ff7043;--inc:#5bd08a;--panel:#161718}
+:root[data-theme=black] body{background:#000}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:#cfd8e3;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,sans-serif;color:var(--text)}
-:root[data-theme=dark] body{background:#0c0c0d}
+:root:is([data-theme=dark],[data-theme=black]) body{background:#0c0c0d}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .phone{position:relative;display:flex;flex-direction:column;background:var(--bg);width:100%;height:100dvh;max-width:430px;margin:0 auto;overflow:hidden}
 @media(min-width:480px){.phone{height:min(880px,96dvh);margin:2dvh auto;border-radius:34px;box-shadow:0 20px 60px #0004;border:8px solid #111}}
@@ -16,11 +19,11 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .tile{background:var(--tile);border-radius:6px;padding:7px 4px;text-align:center;font-size:13px;display:flex;flex-direction:column;gap:2px;border:2px solid transparent;color:var(--text)}
 :root[data-theme=light] .tile{color:#1d2733}.tile b{font-weight:500}.tile.on{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
 .calc{margin:8px 20px 6px;padding:10px;border:1.5px solid #b3c9ee;border-radius:16px;background:var(--panel)}
-:root[data-theme=dark] .calc{border-color:#55575c;background:#252628}
+:root:is([data-theme=dark],[data-theme=black]) .calc{border-color:#55575c;background:#252628}
 .disp{min-height:34px;text-align:center;font-size:22px;display:flex;flex-direction:column;justify-content:center}.disp i{color:var(--sub);font-style:normal;font-size:16px}.disp em{font-style:normal;font-size:12px;color:var(--sub)}
 .keys{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:6px 8px;justify-items:center}
 .keys button{width:54px;height:54px;border-radius:50%;background:var(--key);font-size:22px;color:#12344a}
-:root[data-theme=dark] .keys button{color:#fff}
+:root:is([data-theme=dark],[data-theme=black]) .keys button{color:#fff}
 .keys .op{background:var(--keyop);color:#fff}
 .keys{grid-auto-flow:row}
 .keys button:nth-child(4n+1){order:0}
@@ -49,3 +52,10 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 .track.pk{height:20px;position:relative;border:1px solid #c9a0b0;background:var(--card);border-radius:10px}.track.pk div{background:#d5b4c0;position:absolute;left:0;top:0}.track.pk span,.track.pk em{position:absolute;top:1px;font-size:12px;font-style:normal}.track.pk span{left:8px}.track.pk em{right:10px}
 .mrow{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:var(--card);border-bottom:1px solid var(--line);font-size:16px;text-align:left}.mrow span{font-size:20px}.mrow em{margin-left:auto;color:var(--sub);font-style:normal}.mrow input[type=checkbox]{margin-left:auto;width:22px;height:22px}.mrow .num{width:90px;padding:6px}
 .sec{margin:16px 14px 6px;color:var(--sub);font-size:12px;text-transform:uppercase}
+
+.wide2{width:auto;margin-left:auto}
+.gate{flex:1;display:flex;flex-direction:column;justify-content:center;padding:28px;gap:10px;text-align:center}
+.gate h2{margin:0 0 6px;font-size:20px}.gico{width:72px;height:72px;margin:0 auto 8px;border-radius:18px;background:var(--blue);color:#fff;font-size:42px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.gate form{display:flex;flex-direction:column;gap:10px}
+.gin{font:inherit;font-size:16px;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text)}
+.gerr{color:#e53935;font-size:13px;margin:0}

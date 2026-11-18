@@ -1,6 +1,6 @@
-export const SYM = { RUB: '₽', USD: '$', EUR: '€' }
-export const CURRENCIES = ['RUB', 'USD', 'EUR']
-export const fmt = (n, cur = 'RUB') =>
+export const SYM = { MDL: 'MDL', RUB: '₽', USD: '$', EUR: '€' }
+export const CURRENCIES = ['MDL', 'USD', 'EUR', 'RUB']
+export const fmt = (n, cur = 'MDL') =>
   new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(Math.round(n * 100) / 100) + ' ' + (SYM[cur] || cur)
 export const uid = () => Math.random().toString(36).slice(2, 10)
 export const pad = (n) => String(n).padStart(2, '0')
@@ -73,4 +73,11 @@ export function toCSV(state) {
     rows.push([ymd(d), hm(t.ts), t.type === 'expense' ? 'Расход' : 'Доход', acc[t.accountId]?.name || '', cat[t.categoryId]?.name || '', t.amount, acc[t.accountId]?.currency || '', t.note || ''])
   })
   return rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n')
+}
+
+const hex = (b) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('')
+export const randHex = (n = 16) => hex(crypto.getRandomValues(new Uint8Array(n)))
+export async function hashPw(login, pw, salt) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(login.trim().toLowerCase() + '\u0000' + pw), 'PBKDF2', false, ['deriveBits'])
+  return hex(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: new TextEncoder().encode(salt), iterations: 150000 }, key, 256))
 }
