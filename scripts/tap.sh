@@ -1,5 +1,6 @@
 #!/bin/zsh
-# usage: tap.sh ix iy shots/x.png  (coords in that screenshot; phone body is centered: 300x650 px)
-W=$(sips -g pixelWidth "$3" | awk '/pixelWidth/{print $2}'); H=$(sips -g pixelHeight "$3" | awk '/pixelHeight/{print $2}')
-x=$(python3 -c "print(round(3707+($1-($W-300)/2)*1.04))"); y=$(python3 -c "print(round(254+($2-($H-650)/2)*1.0677))")
+# usage: tap.sh ix iy  (coords in a screenshot taken while iPhone Mirroring is focused: 424x806, window origin 57,38, scale 1)
+agent-desktop focus-window --app "iPhone Mirroring" >/dev/null 2>&1; sleep 0.8
+B=$(agent-desktop list-windows --app "iPhone Mirroring" | python3 -c "import sys,json;b=json.load(sys.stdin)['data'][0]['bounds'];print(b['x'],b['y'])")
+x=$(python3 -c "b='$B'.split();print(round(float(b[0])+$1-57))"); y=$(python3 -c "b='$B'.split();print(round(float(b[1])+$2-38))")
 for i in 1 2; do agent-desktop mouse-click --headed --xy $x,$y >/dev/null 2>&1; sleep 0.6; done; echo tapped $x,$y

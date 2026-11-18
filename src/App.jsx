@@ -30,6 +30,7 @@ function applyRecurring(s) {
 function Main({ s, setS, sync, onLogout, onDisconnect }) {
   const [route, setRoute] = useState('expense')
   const [modal, setModal] = useState(null)
+  const [edit, setEdit] = useState(null)
   const up = (patch) => setS((p) => ({ ...p, ...(typeof patch === 'function' ? patch(p) : patch), updatedAt: Date.now() }))
   const updateRates = async (force) => {
     try {
@@ -39,7 +40,9 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
     } catch { return null }
   }
   useEffect(() => { updateRates(false) }, [])
-  const ctx = { s, up, setRoute, setModal, sync, onLogout, onDisconnect, updateRates }
+  const openEdit = (id) => { setEdit({ id, back: route }); setRoute('edit') }
+  const cycleTheme = () => { const o = ['dark', 'black', 'light']; up({ theme: o[(o.indexOf(s.theme) + 1) % o.length] }) }
+  const ctx = { s, up, setRoute, setModal, edit, openEdit, cycleTheme, sync, onLogout, onDisconnect, updateRates }
   const main = ['expense', 'income', 'accounts', 'feed', 'menu'].includes(route)
   return (
     <div className="phone">
@@ -49,6 +52,7 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
       {route === 'menu' && <Menu ctx={ctx} />}
       {route === 'accounts' && <Accounts ctx={ctx} />}
       {route === 'feed' && <Feed ctx={ctx} />}
+      {route === 'edit' && <Edit ctx={ctx} />}
       {route === 'loans' && <Loans ctx={ctx} />}
       {route === 'recurring' && <Recurring ctx={ctx} />}
       {route === 'settings' && <Settings ctx={ctx} />}
@@ -89,98 +93,150 @@ const toBase = (s, amt, cur) => amt * (s.rates[cur] || 1)
 const MDL = 'MDL'
 
 function Entry({ ctx, type }) {
-  const { s, up, setModal } = ctx
+  const { s, up, setModal, openEdit } = ctx
   const act = s.accounts.filter((a) => !a.archived)
   const [acc, setAcc] = useState(act[0]?.id)
   const [expr, setExpr] = useState('')
-  const [pick, setPick] = useState(false)
+  const [sheet, setSheet] = useState(null) // 'all' | 'search'
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState(null)
   const bal = useMemo(() => balances(s), [s])
   const total = evalExpr(expr)
-  const hasOp = /[+\-×÷]/.test(expr)
+  const accSel = s.accounts.find((a) => a.id === acc && !a.archived) || act[0]
   const cats = s.categories.filter((c) => c.type === type)
+  const freq = useMemo(() => {
+    const n = {}; s.transactions.forEach((t) => { if (t.type === type) n[t.categoryId] = (n[t.categoryId] || 0) + 1 })
+    return [...cats].sort((a, b) => (n[b.id] || 0) - (n[a.id] || 0))
+  }, [s.transactions, s.categories, type])
   const save = (catId) => {
-    if (!total) return
-    up((p) => ({ transactions: [...p.transactions, { id: uid(), type, accountId: acc, categoryId: catId, amount: total, ts: Date.now(), note: '' }] }))
-    setExpr(''); setPick(false)
+    if (!total || !accSel) return
+    up((p) => ({ transactions: [...p.transactions, { id: uid(), type, accountId: accSel.id, categoryId: catId, amount: total, ts: Date.now(), note: '' }] }))
+    setExpr(''); setSheet(null); setQ('')
   }
   const addCat = () => setModal({
     title: 'Новая категория',
     fields: [{ key: 'name', label: 'Название' }, { key: 'icon', label: 'Иконка (эмодзи)', def: '🛒' }],
     onSubmit: (v) => { if (v.name) up((p) => ({ categories: [...p.categories, { id: uid(), name: v.name, icon: v.icon || '🛒', color: '#4fc3f7', type }] })) },
   })
-  const days = useMemo(() => {
-    const list = s.transactions.filter((t) => t.type === type || t.type === 'transfer').sort((a, b) => b.ts - a.ts).slice(0, 40)
-    const g = []; list.forEach((t) => { const k = startOfDay(t.ts).getTime(); let x = g.find((y) => y.k === k); if (!x) g.push((x = { k, items: [] })); x.items.push(t) })
-    return g
-  }, [s.transactions, type])
   const today = startOfDay(new Date()).getTime()
-  const dayName = (k) => k === today ? 'сегодня' : k === today - 864e5 ? 'вчера' : new Date(k).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
-  const catOf = (id) => s.categories.find((c) => c.id === id)
+  const dayItems = (k) => s.transactions.filter((t) => t.type === type && startOfDay(t.ts).getTime() === k).sort((a, b) => b.ts - a.ts)
   const accOf = (id) => s.accounts.find((a) => a.id === id)
+  const catOf = (id) => s.categories.find((c) => c.id === id)
+  const onInput = (e) => setExpr(e.target.value.replace(/,/g, '.').replace(/\*/g, '×').replace(/\//g, '÷').replace(/[^0-9.+\-−×÷]/g, ''))
+  const Day = ({ k, label }) => {
+    const items = dayItems(k), sum = items.reduce((x, t) => x + t.amount, 0)
+    return (
+      <>
+        <div className="dayhdr">{label}: <b>{fmt(sum, MDL)}</b></div>
+        {items.map((t) => {
+          const c = catOf(t.categoryId), a = accOf(t.accountId), isOpen = open === t.id
+          return (
+            <div key={t.id} className="row opr" onClick={() => (isOpen ? openEdit(t.id) : setOpen(t.id))}>
+              <span className="ic">{c?.icon}</span>
+              <div className="mid"><div>{c?.name}</div>{isOpen ? <span className="chip">{a?.name}</span> : <small>{a?.name}{t.note && <u> {t.note}</u>}</small>}
+                {isOpen && <div className="acts" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => openEdit(t.id)} title="Изменить">✎</button>
+                  <button onClick={() => up((p) => ({ transactions: p.transactions.map((x) => x.id === t.id ? { ...x, ts: x.ts - 864e5 } : x) }))} title="На вчера">←1</button>
+                  <button onClick={() => confirm('Удалить операцию?') && up((p) => ({ transactions: p.transactions.filter((x) => x.id !== t.id) }))} title="Удалить">🗑</button>
+                </div>}
+              </div>
+              <div className="rt"><b className={type}>{fmt(t.amount, a?.currency)}</b><small>{hm(t.ts)}</small></div>
+            </div>
+          )
+        })}
+        {!items.length && <p className="empty">Нет операций</p>}
+      </>
+    )
+  }
+  const word = type === 'expense' ? 'Потрачено' : 'Получено'
+  const tiles = total ? freq.slice(0, 6) : []
+  const found = freq.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()))
   return (
     <>
-      <Header title={type === 'expense' ? 'Расходы' : 'Доходы'} ctx={ctx} left={<button className="lnk" onClick={() => setPick(true)} title="Категории">⭐</button>} right={<button className="lnk" onClick={() => ctx.setRoute('report')} title="Отчёт">◔</button>} />
+      <Header title={type === 'expense' ? 'Расходы' : 'Доходы'} ctx={ctx} left={<button className="lnk" onClick={() => ctx.cycleTheme()} title="Тема">☀</button>} right={<button className="lnk" onClick={() => ctx.setRoute('report')} title="Отчёт">◔</button>} />
       <div className="scroll">
+        <div className={'amt ' + type}>
+          <input value={expr} onChange={onInput} placeholder="Введите сумму" inputMode="decimal" enterKeyHint="done" />
+          {expr && <button onClick={() => setExpr('')} aria-label="Очистить">✕</button>}
+        </div>
+        {/[+\-−×÷]/.test(expr) && total > 0 && <div className="amtsum">= {fmt(total, accSel?.currency)}</div>}
         <div className="tiles">
           {act.map((a) => (
-            <button key={a.id} className={'tile' + (a.id === acc ? ' on' : '')} onClick={() => setAcc(a.id)}>
+            <button key={a.id} className={'tile' + (a.id === accSel?.id ? ' on' : '')} onClick={() => setAcc(a.id)}>
               <span>{a.name}</span><b>{fmt(bal[a.id], a.currency)}</b>
             </button>
           ))}
         </div>
-        <div className="calc">
-          <div className="disp">{expr ? <><span>{expr}</span>{hasOp && <em>= {fmt(total, accOf(acc)?.currency)}</em>}</> : <i>Введите сумму</i>}</div>
-          <div className="keys">
-            {['+', '1', '2', '3', '−', '4', '5', '6', '×', '7', '8', '9', '÷', '.', '0', '⌫'].map((k) => (
-              <button key={k} className={/[+−×÷]/.test(k) ? 'op' : ''} onClick={() => setExpr((e) => press(e, k))}>{k}</button>
-            ))}
+        {total > 0 && (
+          <div className="cgrid4">
+            <button onClick={() => setSheet('all')}><span>☰</span>Все категории</button>
+            <button onClick={() => { setQ(''); setSheet('search') }}><span>🔍</span>Быстрый поиск</button>
+            {tiles.map((c) => <button key={c.id} onClick={() => save(c.id)}><span>{c.icon}</span>{c.name}</button>)}
           </div>
-          <button className="primary wide" disabled={!total} onClick={() => setPick(true)}>
-            {total ? `${fmt(total, accOf(acc)?.currency)} — выбрать категорию` : 'Выберите категорию после ввода суммы'}
-          </button>
-        </div>
-        {days.map((g) => {
-          const real = g.items.filter((t) => t.type !== 'transfer')
-          const sum = real.reduce((x, t) => x + t.amount, 0)
-          return (
-            <div key={g.k}>
-              <div className="dayhdr">{real.length ? `${type === 'expense' ? 'Потрачено' : 'Получено'} ${dayName(g.k)}: ${fmt(sum, 'MDL')}` : `Переводы ${dayName(g.k)}`}</div>
-              {g.items.map((t) => {
-                if (t.type === 'transfer') {
-                  const fa = accOf(t.fromAccountId), ta = accOf(t.toAccountId)
-                  return (
-                    <div key={t.id} className="row" onClick={() => confirm('Удалить перевод?') && up((p) => ({ transactions: p.transactions.filter((x) => x.id !== t.id) }))}>
-                      <span className="ic">⇄</span>
-                      <div className="mid"><div>Перевод</div><small>{fa?.name} → {ta?.name}{t.note && <u> {t.note}</u>}</small></div>
-                      <div className="rt"><b className="xfer">{fmt(t.amount, fa?.currency)}{fa?.currency !== ta?.currency && ` → ${fmt(t.toAmount ?? t.amount, ta?.currency)}`}</b><small>{hm(t.ts)}</small></div>
-                    </div>
-                  )
-                }
-                const c = catOf(t.categoryId)
-                return (
-                  <div key={t.id} className="row" onClick={() => confirm('Удалить операцию?') && up((p) => ({ transactions: p.transactions.filter((x) => x.id !== t.id) }))}>
-                    <span className="ic">{c?.icon}</span>
-                    <div className="mid"><div>{c?.name}</div><small>{accOf(t.accountId)?.name}{t.note && <u> {t.note}</u>}</small></div>
-                    <div className="rt"><b className={type}>{fmt(t.amount, accOf(t.accountId)?.currency)}</b><small>{hm(t.ts)}</small></div>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        })}
-        {!days.length && <p className="empty">Операций пока нет. Введите сумму и выберите категорию.</p>}
+        )}
+        <Day k={today} label={`${word} сегодня`} />
+        <Day k={today - 864e5} label={`${word} вчера`} />
+        <button className="histlink" onClick={() => ctx.setRoute('feed')}>История</button>
       </div>
-      {pick && (
-        <div className="sheet" onClick={() => setPick(false)}>
+      {sheet && (
+        <div className="sheet" onClick={() => setSheet(null)}>
           <div onClick={(e) => e.stopPropagation()}>
-            <h3>{total ? `${fmt(total, accOf(acc)?.currency)} · ${accOf(acc)?.name}` : 'Категории'}</h3>
+            <h3>{sheet === 'all' ? 'Все категории' : 'Быстрый поиск'} · {fmt(total, accSel?.currency)}</h3>
+            {sheet === 'search' && <input className="num qs" autoFocus placeholder="Название категории" value={q} onChange={(e) => setQ(e.target.value)} />}
             <div className="cgrid">
-              {cats.map((c) => <button key={c.id} onClick={() => save(c.id)}><span>{c.icon}</span>{c.name}</button>)}
-              <button className="add" onClick={addCat}><span>＋</span>Новая</button>
+              {(sheet === 'all' ? freq : found).map((c) => <button key={c.id} onClick={() => save(c.id)}><span>{c.icon}</span>{c.name}</button>)}
+              {sheet === 'all' && <button className="add" onClick={addCat}><span>＋</span>Новая</button>}
             </div>
           </div>
         </div>
       )}
+    </>
+  )
+}
+
+function Edit({ ctx }) {
+  const { s, up, edit, setRoute } = ctx
+  const t = s.transactions.find((x) => x.id === edit?.id)
+  const back = edit?.back || 'expense'
+  const BL = { expense: 'Расходы', income: 'Доходы', feed: 'Лента', accounts: 'Счета' }
+  const d0 = t ? new Date(t.ts) : new Date()
+  const [v, setV] = useState(() => t ? { acc: t.accountId, from: t.fromAccountId, to: t.toAccountId, cat: t.categoryId, amount: String(t.amount), toAmount: String(t.toAmount ?? ''), date: `${d0.getFullYear()}-${pad(d0.getMonth() + 1)}-${pad(d0.getDate())}`, time: `${pad(d0.getHours())}:${pad(d0.getMinutes())}`, note: t.note || '' } : {})
+  useEffect(() => { if (!t) setRoute(back) }, [t])
+  if (!t) return null
+  const isX = t.type === 'transfer'
+  const set = (k) => (e) => setV({ ...v, [k]: e.target.value })
+  const cats = s.categories.filter((c) => c.type === t.type)
+  const accSel = (k) => <select value={v[k]} onChange={set(k)}>{s.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.archived ? ' (архив)' : ''}</option>)}</select>
+  const done = () => {
+    const amount = +v.amount
+    if (!(amount > 0)) return alert('Введите сумму больше 0')
+    const ts = new Date(`${v.date}T${v.time || '00:00'}`).getTime() || t.ts
+    up((p) => ({ transactions: p.transactions.map((x) => x.id !== t.id ? x : isX
+      ? { ...x, fromAccountId: v.from, toAccountId: v.to, amount, toAmount: +v.toAmount > 0 ? +v.toAmount : amount, ts, note: v.note }
+      : { ...x, accountId: v.acc, categoryId: v.cat, amount, ts, note: v.note }) }))
+    setRoute(back)
+  }
+  const del = () => confirm('Удалить операцию?') && (up((p) => ({ transactions: p.transactions.filter((x) => x.id !== t.id) })), setRoute(back))
+  return (
+    <>
+      <Header title="Изменение" ctx={ctx} left={<button className="lnk" onClick={() => setRoute(back)}>‹ {BL[back] || 'Назад'}</button>} right={<button className="lnk" onClick={done}>Готово</button>} />
+      <div className="scroll">
+        <div className="grp">
+          {isX ? <>
+            <label className="frow">Откуда{accSel('from')}</label>
+            <label className="frow">Куда{accSel('to')}</label>
+          </> : <>
+            <label className="frow">Счёт{accSel('acc')}</label>
+            <label className="frow">Категория<select value={v.cat} onChange={set('cat')}>{cats.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select></label>
+          </>}
+          <label className="frow">Сумма<input type="number" step="any" inputMode="decimal" value={v.amount} onChange={set('amount')} /></label>
+          {isX && <label className="frow">Зачислено<input type="number" step="any" inputMode="decimal" value={v.toAmount} onChange={set('toAmount')} /></label>}
+          <label className="frow">Дата<input type="date" value={v.date} onChange={set('date')} /></label>
+          <label className="frow">Время<input type="time" value={v.time} onChange={set('time')} /></label>
+          <label className="frow">Заметка<input value={v.note} onChange={set('note')} /></label>
+        </div>
+        <div className="grp"><button className="delbtn" onClick={del}>Удалить {isX ? 'перевод' : t.type === 'income' ? 'доход' : 'расход'}…</button></div>
+      </div>
     </>
   )
 }
@@ -376,7 +432,7 @@ function Feed({ ctx }) {
                 if (t.type === 'transfer') {
                   const fa = accOf(t.fromAccountId), ta = accOf(t.toAccountId)
                   return (
-                    <div key={t.id} className="row" onClick={() => del(t)}>
+                    <div key={t.id} className="row" onClick={() => ctx.openEdit(t.id)}>
                       <span className="ic">⇄</span>
                       <div className="mid"><div>Перевод</div><small>{fa?.name} → {ta?.name}{t.note && <u> {t.note}</u>}</small></div>
                       <div className="rt"><b className="xfer">{fmt(t.amount, fa?.currency)}{fa?.currency !== ta?.currency && ` → ${fmt(t.toAmount ?? t.amount, ta?.currency)}`}</b><small>{hm(t.ts)}</small></div>
@@ -385,7 +441,7 @@ function Feed({ ctx }) {
                 }
                 const c = catOf(t.categoryId), a = accOf(t.accountId)
                 return (
-                  <div key={t.id} className="row" onClick={() => del(t)}>
+                  <div key={t.id} className="row" onClick={() => ctx.openEdit(t.id)}>
                     <span className="ic">{c?.icon}</span>
                     <div className="mid"><div>{c?.name}</div><small>{a?.name}{t.note && <u> {t.note}</u>}</small></div>
                     <div className="rt"><b className={t.type}>{t.type === 'income' ? '' : '−'}{fmt(t.amount, a?.currency)}</b><small>{hm(t.ts)}</small></div>
