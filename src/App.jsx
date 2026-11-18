@@ -52,6 +52,8 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
   if (prevRoute.current !== route) {
     const a = prevRoute.current, b = route
     dirRef.current = depth(a) !== depth(b) ? (depth(b) > depth(a) ? 'r' : 'l') : (ORD.indexOf(b) >= ORD.indexOf(a) ? 'r' : 'l')
+    if (b === 'report') dirRef.current = 'up'
+    else if (a === 'report') dirRef.current = 'dn'
     prevRoute.current = b
   }
   const main = ['expense', 'income', 'accounts', 'feed', 'menu'].includes(route)
