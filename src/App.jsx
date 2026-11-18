@@ -504,7 +504,7 @@ function Feed({ ctx }) {
             return (
               <div key={t.id} className="mf-row" onClick={() => ctx.openEdit(t.id)}>
                 <span className="mf-ic">{xf ? <ArrowLeftRight size={22} strokeWidth={1.75} /> : <Ico icon={c?.icon} />}</span>
-                <div className="mf-mid"><div>{xf ? `${a?.name} → ${ta?.name}` : t.note || c?.name}</div><small>{dstr(t.ts)}{t.note && !xf ? ' · ' + c?.name : ''}{' · '}{xf ? hm(t.ts) : a?.name}</small></div>
+                <div className="mf-mid"><div>{xf ? `${a?.name} → ${ta?.name}` : c?.name || t.note}</div><small>{dstr(t.ts)}{t.note && !xf ? ' · ' + t.note : ''}{' · '}{xf ? hm(t.ts) : a?.name}</small></div>
                 <div className={'mf-am ' + (t.type === 'income' ? 'income' : '')}>{t.type === 'income' ? '+' : xf ? '' : '−'}{new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(t.amount)}<small>{a?.currency}</small></div>
               </div>
             )
