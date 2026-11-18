@@ -33,6 +33,8 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
   const [route, setRoute] = useState('expense')
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
+  const dirRef = useRef('r')
+  const prevRoute = useRef('expense')
   const up = (patch) => setS((p) => ({ ...p, ...(typeof patch === 'function' ? patch(p) : patch), updatedAt: Date.now() }))
   const updateRates = async (force) => {
     try {
@@ -45,9 +47,17 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
   const openEdit = (id) => { setEdit({ id, back: route }); setRoute('edit') }
   const cycleTheme = () => { const o = ['dark', 'black', 'light']; up({ theme: o[(o.indexOf(s.theme) + 1) % o.length] }) }
   const ctx = { s, up, setRoute, setModal, edit, openEdit, cycleTheme, sync, onLogout, onDisconnect, updateRates }
+  const ORD = ['expense', 'income', 'accounts', 'feed', 'menu']
+  const depth = (r) => (ORD.includes(r) ? 0 : 1)
+  if (prevRoute.current !== route) {
+    const a = prevRoute.current, b = route
+    dirRef.current = depth(a) !== depth(b) ? (depth(b) > depth(a) ? 'r' : 'l') : (ORD.indexOf(b) >= ORD.indexOf(a) ? 'r' : 'l')
+    prevRoute.current = b
+  }
   const main = ['expense', 'income', 'accounts', 'feed', 'menu'].includes(route)
   return (
     <div className="phone">
+      <div className={'scr ' + dirRef.current} key={route}>
       {route === 'expense' && <Entry key="e" ctx={ctx} type="expense" />}
       {route === 'income' && <Entry key="i" ctx={ctx} type="income" />}
       {route === 'report' && <Report ctx={ctx} />}
@@ -58,6 +68,7 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
       {route === 'loans' && <Loans ctx={ctx} />}
       {route === 'recurring' && <Recurring ctx={ctx} />}
       {route === 'settings' && <Settings ctx={ctx} />}
+      </div>
       {main && (
         <nav className="tabs">
           {[['expense', ArrowDownRight, 'Расходы'], ['income', ArrowUpRight, 'Доходы'], ['accounts', Landmark, 'Счета'], ['feed', ReceiptText, 'Лента'], ['menu', MenuIcon, 'Меню']].map(([k, I, l]) => (
