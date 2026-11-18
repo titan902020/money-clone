@@ -6,7 +6,7 @@ import { hashPw, randHex, fmt, uid, hm, evalExpr, press, periodRange, shiftAncho
 const CACHE = 'mc-cache', SESS = 'mc-sess'
 const readCache = () => { try { return JSON.parse(localStorage.getItem(CACHE)) } catch { return null } }
 const sessOf = (a) => (a?.hash ? 'ok-' + a.hash.slice(0, 24) : '')
-const migrate = (d) => { const b = seed(); return { ...b, ...d, rates: { ...b.rates, ...(d.rates || {}), MDL: 1 }, theme: d.theme || b.theme } }
+const migrate = (d) => { const b = seed(); return { ...b, ...d, accounts: (d.accounts || b.accounts).map((a) => ({ ...a, archived: !!a.archived })), rates: { ...b.rates, ...(d.rates || {}), MDL: 1 }, theme: d.theme || b.theme } }
 
 function applyRecurring(s) {
   const now = new Date(); const cur = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`
@@ -90,7 +90,8 @@ const MDL = 'MDL'
 
 function Entry({ ctx, type }) {
   const { s, up, setModal } = ctx
-  const [acc, setAcc] = useState(s.accounts[0]?.id)
+  const act = s.accounts.filter((a) => !a.archived)
+  const [acc, setAcc] = useState(act[0]?.id)
   const [expr, setExpr] = useState('')
   const [pick, setPick] = useState(false)
   const bal = useMemo(() => balances(s), [s])
@@ -121,7 +122,7 @@ function Entry({ ctx, type }) {
       <Header title={type === 'expense' ? 'Расходы' : 'Доходы'} ctx={ctx} left={<button className="lnk" onClick={() => setPick(true)} title="Категории">⭐</button>} right={<button className="lnk" onClick={() => ctx.setRoute('report')} title="Отчёт">◔</button>} />
       <div className="scroll">
         <div className="tiles">
-          {s.accounts.map((a) => (
+          {act.map((a) => (
             <button key={a.id} className={'tile' + (a.id === acc ? ' on' : '')} onClick={() => setAcc(a.id)}>
               <span>{a.name}</span><b>{fmt(bal[a.id], a.currency)}</b>
             </button>
@@ -209,7 +210,7 @@ function Report({ ctx }) {
   const [type, setType] = useState('expense')
   const [accF, setAccF] = useState('all')
   const [from, to] = periodRange(kind, anchor)
-  const accs = accF === 'all' ? s.accounts : s.accounts.filter((a) => a.id === accF)
+  const accs = accF === 'all' ? s.accounts.filter((a) => !a.archived) : s.accounts.filter((a) => a.id === accF)
   const accMap = Object.fromEntries(s.accounts.map((a) => [a.id, a]))
   const inP = s.transactions.filter((t) => t.ts >= from && t.ts < to && t.type === type && accs.some((a) => a.id === t.accountId))
   const by = {}; inP.forEach((t) => { by[t.categoryId] = (by[t.categoryId] || 0) + toBase(s, t.amount, accMap[t.accountId]?.currency) })
@@ -290,14 +291,15 @@ function Menu({ ctx }) {
 
 function openTransfer(ctx, fromId) {
   const { s, up, setModal } = ctx
-  const accOpts = { options: s.accounts.map((a) => a.id), labels: Object.fromEntries(s.accounts.map((a) => [a.id, a.name])) }
-  if (s.accounts.length < 2) return alert('Нужно минимум два счёта')
-  const fi = Math.max(0, s.accounts.findIndex((a) => a.id === fromId))
+  const list = s.accounts.filter((a) => !a.archived)
+  const accOpts = { options: list.map((a) => a.id), labels: Object.fromEntries(list.map((a) => [a.id, a.name])) }
+  if (list.length < 2) return alert('Нужно минимум два активных счёта')
+  const fi = Math.max(0, list.findIndex((a) => a.id === fromId))
   setModal({
     title: '⇄ Перевод между счетами',
     fields: [
-      { key: 'from', label: 'Откуда', ...accOpts, def: s.accounts[fi].id },
-      { key: 'to', label: 'Куда', ...accOpts, def: s.accounts[fi === 0 ? 1 : 0].id },
+      { key: 'from', label: 'Откуда', ...accOpts, def: list[fi].id },
+      { key: 'to', label: 'Куда', ...accOpts, def: list[fi === 0 ? 1 : 0].id },
       { key: 'amount', label: 'Сумма списания', type: 'number' },
       { key: 'toAmount', label: 'Сумма зачисления (пусто — по курсу)', type: 'number' },
       { key: 'note', label: 'Заметка' },
@@ -334,16 +336,16 @@ function Feed({ ctx }) {
   const days = []
   list.forEach((t) => { const k = startOfDay(t.ts).getTime(); let x = days.find((y) => y.k === k); if (!x) days.push((x = { k, items: [] })); x.items.push(t) })
   const bal = balances({ ...s, transactions: s.transactions.filter((t) => t.ts < to.getTime()) })
-  const total = accF === 'all' ? s.accounts.reduce((a, x) => a + toBase(s, bal[x.id], x.currency), 0) : bal[accF] || 0
+  const total = accF === 'all' ? s.accounts.filter((a) => !a.archived).reduce((a, x) => a + toBase(s, bal[x.id], x.currency), 0) : bal[accF] || 0
   const today = startOfDay(new Date()).getTime()
   const dayName = (k) => new Date(k).toLocaleDateString('ru-RU', { weekday: 'long' }) + (k === today ? ' · сегодня' : k === today - 864e5 ? ' · вчера' : '')
   const addOp = (type) => {
     const cats = s.categories.filter((c) => c.type === type)
-    const accs = accF === 'all' ? s.accounts : s.accounts.filter((a) => a.id === accF)
+    const accs = accF === 'all' ? s.accounts.filter((a) => !a.archived) : s.accounts.filter((a) => a.id === accF)
     setModal({
       title: type === 'expense' ? '− Расход' : '+ Доход',
       fields: [
-        { key: 'acc', label: 'Счёт', options: s.accounts.map((a) => a.id), labels: Object.fromEntries(s.accounts.map((a) => [a.id, a.name])), def: accs[0]?.id },
+        { key: 'acc', label: 'Счёт', options: s.accounts.filter((a) => !a.archived || a.id === accF).map((a) => a.id), labels: Object.fromEntries(s.accounts.map((a) => [a.id, a.name])), def: accs[0]?.id },
         { key: 'cat', label: 'Категория', options: cats.map((c) => c.id), labels: Object.fromEntries(cats.map((c) => [c.id, `${c.icon} ${c.name}`])), def: cats[0]?.id },
         { key: 'amount', label: 'Сумма', type: 'number' },
         { key: 'note', label: 'Заметка' },
@@ -357,7 +359,7 @@ function Feed({ ctx }) {
       <Header title="Лента" ctx={ctx} right={
         <select className="hsel" value={accF} onChange={(e) => setAccF(e.target.value)}>
           <option value="all">Все</option>
-          {s.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          {s.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.archived ? ' (архив)' : ''}</option>)}
         </select>} />
       <div className="scroll">
         <div className="mnav"><button onClick={() => setAnchor((a) => shiftAnchor('month', a, -1))}>‹</button><b>{periodLabel('month', anchor)}</b><button onClick={() => setAnchor((a) => shiftAnchor('month', a, 1))}>›</button></div>
@@ -401,20 +403,43 @@ function Feed({ ctx }) {
 
 function Accounts({ ctx }) {
   const { s, up, setModal } = ctx
+  const [sub, setSub] = useState('acc')
   const bal = balances(s)
+  const ST = { options: ['active', 'archived'], labels: { active: 'Активный', archived: 'В архиве' } }
   const form = (a) => setModal({
     title: a ? 'Счёт' : 'Новый счёт',
-    fields: [{ key: 'name', label: 'Название', def: a?.name || '' }, { key: 'currency', label: 'Валюта', options: CURRENCIES, def: a?.currency || 'MDL' }, { key: 'initial', label: 'Начальный остаток', type: 'number', def: a?.initial ?? 0 }],
-    onSubmit: (v) => v.name && up((p) => ({ accounts: a ? p.accounts.map((x) => x.id === a.id ? { ...x, name: v.name, currency: v.currency, initial: +v.initial || 0 } : x) : [...p.accounts, { id: uid(), name: v.name, currency: v.currency, initial: +v.initial || 0 }] })),
+    fields: [{ key: 'name', label: 'Название', def: a?.name || '' }, { key: 'currency', label: 'Валюта', options: CURRENCIES, def: a?.currency || 'MDL' }, { key: 'initial', label: 'Начальный остаток', type: 'number', def: a?.initial ?? 0 }, ...(a ? [{ key: 'status', label: 'Статус', ...ST, def: a.archived ? 'archived' : 'active' }] : [])],
+    onSubmit: (v) => v.name && up((p) => ({ accounts: a ? p.accounts.map((x) => x.id === a.id ? { ...x, name: v.name, currency: v.currency, initial: +v.initial || 0, archived: v.status === 'archived' } : x) : [...p.accounts, { id: uid(), name: v.name, currency: v.currency, initial: +v.initial || 0, archived: false }] })),
     onDelete: a && (() => confirm('Удалить счёт и его операции?') && up((p) => ({ accounts: p.accounts.filter((x) => x.id !== a.id), transactions: p.transactions.filter((t) => t.accountId !== a.id && t.fromAccountId !== a.id && t.toAccountId !== a.id) }))),
   })
-  const sum = s.accounts.reduce((t, a) => t + toBase(s, bal[a.id], a.currency), 0)
+  const active = s.accounts.filter((a) => !a.archived), arch = s.accounts.filter((a) => a.archived)
+  const sum = active.reduce((t, a) => t + toBase(s, bal[a.id], a.currency), 0)
+  const accOf = (id) => s.accounts.find((a) => a.id === id)
+  const xfers = s.transactions.filter((t) => t.type === 'transfer').sort((a, b) => b.ts - a.ts)
+  const accRow = (a) => <div key={a.id} className="row" onClick={() => form(a)}><span className="ic">🏦</span><div className="mid"><div>{a.name}</div><small>{a.currency}</small></div><div className="rt"><b>{fmt(bal[a.id], a.currency)}</b></div></div>
   return (
     <>
       <Header title="Счета" ctx={ctx} right={<><button className="lnk" onClick={() => openTransfer(ctx)} title="Перевод">⇄</button><button className="lnk" onClick={() => form()}>＋</button></>} />
+      <div className="seg top" style={{ padding: '0 14px 10px' }}>{[['acc', 'Счета'], ['xfer', 'Переводы'], ['arch', 'Архив']].map(([k, l]) => <button key={k} className={sub === k ? 'on' : ''} onClick={() => setSub(k)}>{l}</button>)}</div>
       <div className="scroll">
-        <div className="sum"><h2>Всего: {fmt(sum, 'MDL')}</h2></div>
-        {s.accounts.map((a) => <div key={a.id} className="row" onClick={() => form(a)}><span className="ic">🏦</span><div className="mid"><div>{a.name}</div><small>{a.currency}</small></div><div className="rt"><b>{fmt(bal[a.id], a.currency)}</b></div></div>)}
+        {sub === 'acc' && <>
+          <div className="sum"><h2>Всего: {fmt(sum, 'MDL')}</h2></div>
+          {active.map(accRow)}
+          {!active.length && <p className="empty">Нет активных счетов</p>}
+        </>}
+        {sub === 'xfer' && <>
+          {xfers.map((t) => { const fa = accOf(t.fromAccountId), ta = accOf(t.toAccountId); return (
+            <div key={t.id} className="row" onClick={() => confirm('Удалить перевод?') && up((p) => ({ transactions: p.transactions.filter((x) => x.id !== t.id) }))}>
+              <span className="ic">⇄</span>
+              <div className="mid"><div>{fa?.name} → {ta?.name}</div><small>{new Date(t.ts).toLocaleDateString('ru-RU')} {hm(t.ts)}{t.note && <u> {t.note}</u>}</small></div>
+              <div className="rt"><b className="xfer">{fmt(t.amount, fa?.currency)}{fa?.currency !== ta?.currency && ` → ${fmt(t.toAmount ?? t.amount, ta?.currency)}`}</b></div>
+            </div>) })}
+          {!xfers.length && <p className="empty">Переводов пока нет</p>}
+        </>}
+        {sub === 'arch' && <>
+          {arch.map(accRow)}
+          {!arch.length && <p className="empty">Архив пуст. Чтобы убрать счёт, откройте его и поставьте статус «В архиве».</p>}
+        </>}
       </div>
     </>
   )
