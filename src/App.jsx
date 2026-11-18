@@ -70,6 +70,7 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
   )
 }
 
+const PALETTE = ['#ff8a2a', '#3d9bff', '#a56bd8', '#2fae6b', '#ffb454', '#e0457b', '#2f55e0', '#8e9aa8', '#f0c987', '#3ecf8e', '#ff6b6b', '#26a6b8']
 const EM = { expense: '➖', income: '➕', accounts: '🏦', feed: '🧾', menu: '☰' }
 
 function Header({ title, back, backLabel = 'Меню', ctx, left, right }) {
@@ -121,7 +122,7 @@ function Entry({ ctx, type }) {
   const addCat = () => setModal({
     title: 'Новая категория',
     fields: [{ key: 'name', label: 'Название' }, { key: 'icon', label: 'Иконка (эмодзи)', def: '🛒' }],
-    onSubmit: (v) => { if (v.name) up((p) => ({ categories: [...p.categories, { id: uid(), name: v.name, icon: v.icon || '🛒', color: '#4fc3f7', type }] })) },
+    onSubmit: (v) => { if (v.name) up((p) => ({ categories: [...p.categories, { id: uid(), name: v.name, icon: v.icon || '🛒', color: PALETTE[p.categories.length % PALETTE.length], type }] })) },
   })
   const today = startOfDay(new Date()).getTime()
   const dayItems = (k) => s.transactions.filter((t) => t.type === type && startOfDay(t.ts).getTime() === k).sort((a, b) => b.ts - a.ts)
