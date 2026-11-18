@@ -40,7 +40,7 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
   }
   useEffect(() => { updateRates(false) }, [])
   const ctx = { s, up, setRoute, setModal, sync, onLogout, onDisconnect, updateRates }
-  const main = ['expense', 'income', 'report', 'menu'].includes(route)
+  const main = ['expense', 'income', 'accounts', 'feed', 'menu'].includes(route)
   return (
     <div className="phone">
       {route === 'expense' && <Entry key="e" ctx={ctx} type="expense" />}
@@ -54,7 +54,7 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
       {route === 'settings' && <Settings ctx={ctx} />}
       {main && (
         <nav className="tabs">
-          {[['expense', '➖', 'Расходы'], ['income', '➕', 'Доходы'], ['report', '📊', 'Отчёт'], ['menu', '☰', 'Меню']].map(([k, i, l]) => (
+          {[['expense', '➖', 'Расходы'], ['income', '➕', 'Доходы'], ['accounts', '🏦', 'Счета'], ['feed', '🧾', 'Лента'], ['menu', '☰', 'Меню']].map(([k, i, l]) => (
             <button key={k} className={route === k ? 'on' : ''} onClick={() => setRoute(k)}><span>{i}</span>{l}</button>
           ))}
         </nav>
@@ -64,10 +64,10 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
   )
 }
 
-function Header({ title, back, ctx, left, right }) {
+function Header({ title, back, backLabel = 'Меню', ctx, left, right }) {
   return (
     <header className="hdr">
-      <div className="hl">{back ? <button className="lnk" onClick={() => ctx.setRoute(back)}>‹ Меню</button> : left}</div>
+      <div className="hl">{back ? <button className="lnk" onClick={() => ctx.setRoute(back)}>‹ {backLabel}</button> : left}</div>
       <h1>{title}</h1>
       <div className="hr">{right}</div>
     </header>
@@ -225,7 +225,7 @@ function Report({ ctx }) {
   const spentM = (cid) => s.transactions.filter((t) => t.type === 'expense' && t.categoryId === cid && t.ts >= mf && t.ts < mt).reduce((a, t) => a + toBase(s, t.amount, accMap[t.accountId]?.currency), 0)
   return (
     <>
-      <Header title="" ctx={ctx} left={<span />} right={<span />} />
+      <Header title="Отчёт" back="expense" backLabel="Назад" ctx={ctx} />
       <div className="seg top"><button className={mode === 'report' ? 'on' : ''} onClick={() => setMode('report')}>Отчёт</button><button className={mode === 'budget' ? 'on' : ''} onClick={() => setMode('budget')}>Бюджет</button></div>
       <div className="scroll">
         {mode === 'report' && <div className="seg"><button className={kind === 'day' ? 'on' : ''} onClick={() => setKind('day')}>День</button><button className={kind === 'month' ? 'on' : ''} onClick={() => setKind('month')}>Месяц</button><button className={kind === 'year' ? 'on' : ''} onClick={() => setKind('year')}>Год</button></div>}
@@ -275,7 +275,7 @@ function Menu({ ctx }) {
     const blob = new Blob(['﻿' + toCSV(s)], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'money-ok-export.csv'; a.click()
   }
-  const items = [['🏦', 'Счета', () => setRoute('accounts')], ['🧾', 'Лента', () => setRoute('feed')], ['💳', 'Кредиты', () => setRoute('loans')], ['🔁', 'Автоплатежи', () => setRoute('recurring')], ['📤', 'Экспорт в CSV', dl], ['⚙️', 'Настройки', () => setRoute('settings')]]
+  const items = [ ['💳', 'Кредиты', () => setRoute('loans')], ['🔁', 'Автоплатежи', () => setRoute('recurring')], ['📤', 'Экспорт в CSV', dl], ['⚙️', 'Настройки', () => setRoute('settings')]]
   return (
     <>
       <Header title="Меню" ctx={ctx} />
@@ -354,7 +354,7 @@ function Feed({ ctx }) {
   const del = (t) => confirm(t.type === 'transfer' ? 'Удалить перевод?' : 'Удалить операцию?') && up((p) => ({ transactions: p.transactions.filter((x) => x.id !== t.id) }))
   return (
     <>
-      <Header title="Лента" back="menu" ctx={ctx} right={
+      <Header title="Лента" ctx={ctx} right={
         <select className="hsel" value={accF} onChange={(e) => setAccF(e.target.value)}>
           <option value="all">Все</option>
           {s.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -411,7 +411,7 @@ function Accounts({ ctx }) {
   const sum = s.accounts.reduce((t, a) => t + toBase(s, bal[a.id], a.currency), 0)
   return (
     <>
-      <Header title="Счета" back="menu" ctx={ctx} right={<><button className="lnk" onClick={() => openTransfer(ctx)} title="Перевод">⇄</button><button className="lnk" onClick={() => form()}>＋</button></>} />
+      <Header title="Счета" ctx={ctx} right={<><button className="lnk" onClick={() => openTransfer(ctx)} title="Перевод">⇄</button><button className="lnk" onClick={() => form()}>＋</button></>} />
       <div className="scroll">
         <div className="sum"><h2>Всего: {fmt(sum, 'MDL')}</h2></div>
         {s.accounts.map((a) => <div key={a.id} className="row" onClick={() => form(a)}><span className="ic">🏦</span><div className="mid"><div>{a.name}</div><small>{a.currency}</small></div><div className="rt"><b>{fmt(bal[a.id], a.currency)}</b></div></div>)}
