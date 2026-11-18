@@ -113,4 +113,4 @@ html{-webkit-text-size-adjust:100%}input,select{font-size:16px}
 .frow input,.frow select{font:inherit;color:#e0457b;background:none;border:0;text-align:right;max-width:62%;outline:0}
 .frow input[type=number]{color:var(--text)}
 .delbtn{width:100%;padding:13px;color:#ff453a;font-size:16px}
-@media(max-width:479px){.phone{position:fixed;inset:0;height:auto}}
+@media(max-width:479px){.phone{position:fixed;top:0;left:0;right:0;bottom:calc(-1 * env(safe-area-inset-bottom));height:auto;max-width:none}html,body{background:var(--card)!important}}
