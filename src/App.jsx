@@ -100,6 +100,7 @@ function Entry({ ctx, type }) {
   const [sheet, setSheet] = useState(null) // 'all' | 'search'
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(null)
+  const inp = useRef(null), pull = useRef(null)
   const bal = useMemo(() => balances(s), [s])
   const total = evalExpr(expr)
   const accSel = s.accounts.find((a) => a.id === acc && !a.archived) || act[0]
@@ -154,9 +155,11 @@ function Entry({ ctx, type }) {
   return (
     <>
       <Header title={type === 'expense' ? 'Расходы' : 'Доходы'} ctx={ctx} left={<button className="lnk" onClick={() => ctx.cycleTheme()} title="Тема">☀</button>} right={<button className="lnk" onClick={() => ctx.setRoute('report')} title="Отчёт">◔</button>} />
-      <div className="scroll">
+      <div className="scroll"
+        onTouchStart={(e) => { pull.current = e.currentTarget.scrollTop <= 0 ? e.touches[0].clientY : null }}
+        onTouchEnd={(e) => { const y0 = pull.current; pull.current = null; if (y0 != null && e.changedTouches[0].clientY - y0 > 60) inp.current?.focus() }}>
         <div className={'amt ' + type}>
-          <input value={expr} onChange={onInput} placeholder="Введите сумму" inputMode="decimal" enterKeyHint="done" />
+          <input ref={inp} value={expr} onChange={onInput} placeholder="Введите сумму" inputMode="decimal" enterKeyHint="done" />
           {expr && <button onClick={() => setExpr('')} aria-label="Очистить">✕</button>}
         </div>
         {/[+\-−×÷]/.test(expr) && total > 0 && <div className="amtsum">= {fmt(total, accSel?.currency)}</div>}
