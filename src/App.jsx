@@ -61,7 +61,7 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
       {main && (
         <nav className="tabs">
           {[['expense', ArrowDownRight, 'Расходы'], ['income', ArrowUpRight, 'Доходы'], ['accounts', Landmark, 'Счета'], ['feed', ReceiptText, 'Лента'], ['menu', MenuIcon, 'Меню']].map(([k, I, l]) => (
-            <button key={k} className={route === k ? 'on' : ''} onClick={() => setRoute(k)}><span key={route === k ? 'a' : 'b'}><I size={24} strokeWidth={route === k ? 2.2 : 1.75} /></span>{l}</button>
+            <button key={k} className={route === k ? 'on' : ''} onClick={() => setRoute(k)}><span key={route === k ? 'a' : 'b'}>{s.style === 'maib' ? <I size={24} strokeWidth={route === k ? 2.2 : 1.75} /> : <em>{EM[k]}</em>}</span>{l}</button>
           ))}
         </nav>
       )}
@@ -69,6 +69,8 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
     </div>
   )
 }
+
+const EM = { expense: '➖', income: '➕', accounts: '🏦', feed: '🧾', menu: '☰' }
 
 function Header({ title, back, backLabel = 'Меню', ctx, left, right }) {
   return (
@@ -246,6 +248,23 @@ function Edit({ ctx }) {
   )
 }
 
+function Pie({ data }) {
+  const total = data.reduce((a, d) => a + d.v, 0)
+  if (!total) return <div className="piee">нет данных</div>
+  let a0 = -Math.PI / 2
+  const R = 100
+  return (
+    <svg viewBox="-110 -110 220 220" className="pie">
+      {data.length === 1 ? <circle r={R} fill={data[0].color} /> : data.map((d) => {
+        const a1 = a0 + (d.v / total) * Math.PI * 2, large = a1 - a0 > Math.PI ? 1 : 0
+        const p = `M0 0 L${R * Math.cos(a0)} ${R * Math.sin(a0)} A${R} ${R} 0 ${large} 1 ${R * Math.cos(a1)} ${R * Math.sin(a1)}Z`
+        const mid = (a0 + a1) / 2; a0 = a1
+        return <g key={d.id}><path d={p} fill={d.color} stroke="var(--bg)" strokeWidth="1.5" />{d.v / total > 0.07 && <text x={R * 0.62 * Math.cos(mid)} y={R * 0.62 * Math.sin(mid)} textAnchor="middle" dominantBaseline="middle" fontSize="11" fill="#222">{d.name}</text>}</g>
+      })}
+    </svg>
+  )
+}
+
 function Donut({ data, center, onPrev, onNext }) {
   const total = data.reduce((a, d) => a + d.v, 0), R = 70, C = 2 * Math.PI * R
   let off = 0
@@ -325,8 +344,9 @@ function Report({ ctx }) {
             </div>
             <div className="seg small"><button className={type === 'expense' ? 'on' : ''} onClick={() => setType('expense')}>Расходы</button><button className={type === 'income' ? 'on' : ''} onClick={() => setType('income')}>Доходы</button></div>
             <div className="sum"><h2 className={type}>Всего {type === 'expense' ? 'потрачено' : 'получено'}: {fmt(total, 'MDL')}</h2><small>в среднем: {fmt(total / days, 'MDL')} в день</small></div>
+            {s.style === 'maib' ? (<>
             <div className="vtog"><button className={view === 'donut' ? 'on' : ''} onClick={() => setView('donut')}><PieChart size={18} /></button><button className={view === 'bars' ? 'on' : ''} onClick={() => setView('bars')}><BarChart3 size={18} /></button>
-              {view === 'bars' && <><button className={bu === 'month' ? 'on' : ''} onClick={() => { setBu('month'); setKind('month') }}>Месяцы</button><button className={bu === 'day' ? 'on' : ''} onClick={() => { setBu('day'); setKind('month') }}>Дни</button></>}</div>
+              {view === 'bars' && <><button className={bu === 'month' ? 'on' : ''} onClick={() => { setBu('month'); setKind('month') }}>Месяцы</button><button className={bu === 'day' ? 'on' : ''} onClick={() => { setBu('day'); setKind('month') }}>Дни</button></>}</div>}
             {view === 'donut'
               ? <Donut data={data} center={new Date(anchor).toLocaleDateString('ru-RU', { month: 'long' })} onPrev={() => setAnchor((a) => shiftAnchor('month', a, -1))} onNext={() => setAnchor((a) => shiftAnchor('month', a, 1))} />
               : <Bars items={barItems} sel={barSel} onPick={(d) => setAnchor(d)} />}
@@ -338,6 +358,15 @@ function Report({ ctx }) {
                 <ChevronRight size={18} className="chev" />
               </div>
             ))}
+            </>) : (<>
+            <Pie data={data} />
+            {data.map((d) => (
+              <div key={d.id} className="rep">
+                <div className="bar" style={{ width: `${(d.v / (data[0].v || 1)) * 100}%`, background: d.color }} />
+                <div className="line"><span className="lnk"><i className="ic"><Ico icon={d.icon} size={18} /></i> {d.name}</span><span><b>{Math.round((d.v / total) * 100)}%</b><br /><i className={type}>{fmt(d.v, 'MDL')}</i></span></div>
+              </div>
+            ))}
+            </>)}
           </>
         ) : (
           <>
@@ -603,13 +632,17 @@ function Settings({ ctx }) {
           <select className="num wide2" value={s.theme || 'dark'} onChange={(e) => up({ theme: e.target.value })}>
             <option value="dark">Тёмная</option><option value="black">Чёрная (OLED)</option><option value="light">Светлая</option><option value="auto">Как в системе</option>
           </select></label>
+        <label className="mrow"><span>🎨</span>Стиль
+          <select className="num wide2" value={s.style || 'maib'} onChange={(e) => up({ style: e.target.value })}>
+            <option value="maib">maib (линейные иконки)</option><option value="money">Money OK (эмодзи)</option>
+          </select></label>
         <h4 className="sec">Курсы к MDL (BNM{s.ratesDate ? ', ' + s.ratesDate : ''})</h4>
         {['USD', 'EUR', 'RUB'].map((c) => <label key={c} className="mrow"><span>{SYM[c]}</span>1 {c} =<input className="num" type="number" step="any" value={s.rates[c]} onChange={(e) => up({ rates: { ...s.rates, [c]: +e.target.value || 1 } })} /> MDL</label>)}
         <button className="mrow" onClick={upd}><span>🏦</span>Обновить курсы с BNM<em>{msg}</em></button>
         <h4 className="sec">Устройство</h4>
         <button className="mrow" onClick={ctx.onLogout}><span>🔒</span>Выйти из аккаунта</button>
         <button className="mrow" onClick={() => confirm('Отключить это устройство от хранилища? Токен GitHub будет удалён здесь.') && ctx.onDisconnect()}><span>🔌</span>Отключить устройство</button>
-        <button className="mrow danger" onClick={() => confirm('Стереть все счета и операции? Логин и пароль сохранятся.') && up({ ...seed(), auth: s.auth, theme: s.theme, rates: s.rates, ratesDate: s.ratesDate })}><span>♻️</span>Начать с нуля</button>
+        <button className="mrow danger" onClick={() => confirm('Стереть все счета и операции? Логин и пароль сохранятся.') && up({ ...seed(), auth: s.auth, theme: s.theme, style: s.style, rates: s.rates, ratesDate: s.ratesDate })}><span>♻️</span>Начать с нуля</button>
       </div>
     </>
   )
@@ -646,6 +679,7 @@ export default function App() {
   const sha = useRef(null), skip = useRef(false), timer = useRef(null), sRef = useRef(null), phaseRef = useRef('boot')
   sRef.current = s; phaseRef.current = phase
   const theme = s?.theme || 'dark'
+  if (s) document.documentElement.dataset.style = s.style || 'maib'
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const ap = () => {

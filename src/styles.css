@@ -116,19 +116,23 @@ html{-webkit-text-size-adjust:100%}input,select{font-size:16px}
 @media(max-width:479px){.phone{position:fixed;top:0;left:0;right:0;bottom:calc(-1 * env(safe-area-inset-bottom));height:auto;max-width:none}html,body{background:var(--card)!important}}
 
 /* maib-style line icons: dark circle, press animation */
-.ic{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--ic,#262626);color:var(--text);margin-right:12px;flex:none;transition:transform .18s cubic-bezier(.3,1.6,.5,1)}
-.row:active .ic,.cgrid4 button:active span,.line:active .ic{transform:scale(.86)}
-.cgrid4 span{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:var(--ic,#262626);font-size:22px;transition:transform .18s cubic-bezier(.3,1.6,.5,1)}
-.lnk{display:flex;align-items:center}.lnk .ic{width:34px;height:34px;margin-right:10px}
+:root[data-style=maib] .ic{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--ic,#262626);color:var(--text);margin-right:12px;flex:none;transition:transform .18s cubic-bezier(.3,1.6,.5,1)}
+:root[data-style=maib] .row:active .ic,:root[data-style=maib] .cgrid4 button:active span,:root[data-style=maib] .line:active .ic{transform:scale(.86)}
+:root[data-style=maib] .cgrid4 span{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:var(--ic,#262626);font-size:22px;transition:transform .18s cubic-bezier(.3,1.6,.5,1)}
+:root[data-style=maib] .lnk{display:flex;align-items:center}:root[data-style=maib] .lnk .ic{width:34px;height:34px;margin-right:10px}
 :root[data-theme=light]{--ic:#eceef2}
 
 /* tab bar: line icons, press + select animation */
-.tabs button span{display:flex;font-size:0;animation:tabpop .35s cubic-bezier(.3,1.7,.5,1)}
-.tabs button:active span{transform:scale(.8)}.tabs button span{transition:transform .15s}
+:root[data-style=maib] .tabs button span{display:flex;font-size:0;animation:tabpop .35s cubic-bezier(.3,1.7,.5,1)}
+:root[data-style=maib] .tabs button:active span{transform:scale(.8)}:root[data-style=maib] .tabs button span{transition:transform .15s}
 @keyframes tabpop{0%{transform:scale(.7) translateY(3px)}100%{transform:none}}
-.tabs .on{color:var(--blue)}
+:root[data-style=maib] .tabs .on{color:var(--blue)}
 /* report: donut, bars, category rows (maib) */
-.donut{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;background:#202020;border-radius:12px;margin:6px 14px}.donut svg{width:190px}.donut button{color:var(--sub);padding:12px}
-.vtog{display:flex;gap:6px;justify-content:flex-end;padding:4px 14px}.vtog button{padding:6px 10px;border-radius:14px;background:#262626;color:var(--sub);font-size:13px;display:flex;align-items:center}.vtog .on{color:#3ecf8e}
-.bars{display:flex;align-items:flex-end;gap:4px;height:150px;margin:6px 14px;padding:10px 8px 0;background:#202020;border-radius:12px}.bars button{flex:1;display:flex;flex-direction:column;height:100%;align-items:center}.bars .col{flex:1;width:100%;display:flex;align-items:flex-end}.bars .col div{width:100%;background:#4a5560;border-radius:3px;transition:height .3s}.bars .col .on{background:#3ecf8e}.bars small{font-size:10px;color:var(--sub);height:16px;line-height:16px}
-.catrow{display:flex;align-items:center;gap:12px;padding:12px 14px}.cico{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-style:normal;flex:none}.cn{flex:1;font-size:15px}.cn b{font-weight:400;color:var(--sub);margin-left:4px}.ca{color:var(--sub);font-size:14px}.chev{color:var(--sub)}
+:root[data-style=maib] .donut{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;background:#202020;border-radius:12px;margin:6px 14px}:root[data-style=maib] .donut svg{width:190px}:root[data-style=maib] .donut button{color:var(--sub);padding:12px}
+:root[data-style=maib] .vtog{display:flex;gap:6px;justify-content:flex-end;padding:4px 14px}:root[data-style=maib] .vtog button{padding:6px 10px;border-radius:14px;background:#262626;color:var(--sub);font-size:13px;display:flex;align-items:center}:root[data-style=maib] .vtog .on{color:#3ecf8e}
+:root[data-style=maib] .bars{display:flex;align-items:flex-end;gap:4px;height:150px;margin:6px 14px;padding:10px 8px 0;background:#202020;border-radius:12px}:root[data-style=maib] .bars button{flex:1;display:flex;flex-direction:column;height:100%;align-items:center}:root[data-style=maib] .bars .col{flex:1;width:100%;display:flex;align-items:flex-end}:root[data-style=maib] .bars .col div{width:100%;background:#4a5560;border-radius:3px;transition:height .3s}:root[data-style=maib] .bars .col .on{background:#3ecf8e}:root[data-style=maib] .bars small{font-size:10px;color:var(--sub);height:16px;line-height:16px}
+:root[data-style=maib] .catrow{display:flex;align-items:center;gap:12px;padding:12px 14px}:root[data-style=maib] .cico{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-style:normal;flex:none}:root[data-style=maib] .cn{flex:1;font-size:15px}:root[data-style=maib] .cn b{font-weight:400;color:var(--sub);margin-left:4px}:root[data-style=maib] .ca{color:var(--sub);font-size:14px}:root[data-style=maib] .chev{color:var(--sub)}
+
+:root[data-style=maib]:is([data-theme=dark],[data-theme=black]){--bg:#000;--card:#161616;--panel:#161616;--line:#262626;--blue:#3ecf8e}
+:root[data-style=maib]:is([data-theme=dark],[data-theme=black]) .hdr{background:#000}
+.tabs button span{display:flex}
