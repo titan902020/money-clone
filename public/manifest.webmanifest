@@ -1,6 +1,6 @@
 {
-  "name": "Деньги",
-  "short_name": "Деньги",
+  "name": "Money",
+  "short_name": "Money",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
