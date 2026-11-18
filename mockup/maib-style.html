@@ -1,0 +1,93 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Макет Money в стиле maib</title>
+<style>
+:root{--bg:#000;--card:#161616;--card2:#1e1e1e;--line:#232323;--text:#fff;--sub:#8d8d92;--red:#ff6b6b;--green:#3ecf8e;--accent:#ff8a2a;--icon:#262626}
+*{box-sizing:border-box}body{margin:0;background:#111;color:#ddd;font:14px/1.4 -apple-system,"SF Pro Text",Roboto,sans-serif;padding:24px}
+h1{font-size:18px;margin:0 0 4px;color:#fff}.sub{color:#999;margin-bottom:20px}
+.wrap{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:390px;height:780px;background:var(--bg);border-radius:44px;border:8px solid #2a2a2a;overflow:hidden;position:relative;color:var(--text);display:flex;flex-direction:column}
+.sb{height:44px;padding:14px 26px 0;display:flex;justify-content:space-between;font-weight:600;font-size:15px}
+.top{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;padding:6px 14px;height:44px}
+.top h2{margin:0;font-size:17px;font-weight:600;text-align:center}.top .ic{font-size:22px;color:#fff}
+.flt{display:flex;gap:12px;align-items:center;padding:6px 14px 10px}
+.sel{flex:1;background:var(--card);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--text);display:flex;justify-content:space-between;color:#cfcfcf}
+.fi{font-size:22px;width:30px;text-align:center}
+.mon{background:var(--card);padding:14px 20px;font-weight:600;display:flex;justify-content:space-between;font-size:16px}.mon i{font-style:normal;color:var(--sub)}
+.list{flex:1;overflow:auto;padding:0 14px 90px}
+.promo{background:var(--card);border-radius:16px;padding:16px;margin:12px 0;display:flex;gap:14px;position:relative}
+.promo .dot{width:34px;height:34px;border-radius:50%;background:var(--accent);flex:none}.promo b{display:block;font-size:14px}.promo small{color:var(--sub);font-size:13px}.promo .x{position:absolute;right:14px;top:10px;color:var(--sub)}
+.tx{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.tx .ic{width:46px;height:46px;border-radius:50%;background:var(--icon);display:grid;place-items:center;font-size:20px;flex:none}
+.tx .m{flex:1;min-width:0}.tx .m b{display:block;font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tx .m small{color:var(--sub);font-size:12px}
+.tx .a{text-align:right;font-size:15px}.tx .a u{text-decoration:none;font-size:10px;color:var(--sub);margin-left:3px}.tx .a small{display:block;font-size:12px}
+.tx.in .a{color:var(--green)}.tx.dec .a{color:var(--red)}
+.tabs{position:absolute;left:0;right:0;bottom:0;background:#0b0b0b;border-top:1px solid var(--line);display:flex;padding:8px 0 22px}
+.tabs div{flex:1;text-align:center;font-size:10px;color:var(--sub)}.tabs div.on{color:var(--text)}.tabs span{display:block;font-size:20px}
+.hero{background:linear-gradient(#26343d,#000);padding:6px 20px 24px;text-align:center}.hero .d{color:#aaa;font-size:12px;margin-top:6px}.hero .big{font-size:34px;font-weight:300;margin:8px 0}.hero .big b{font-weight:700}.hero .big u{text-decoration:none;font-size:18px;color:#ccc}
+.hero .bal{display:flex;justify-content:center;gap:28px;color:#aaa;font-size:12px}
+.box{background:var(--card);border-radius:16px;margin:0 14px 14px;padding:16px}
+.box .nm{display:flex;gap:12px;align-items:center;font-weight:600;font-size:16px;margin-bottom:14px}
+.row{display:flex;justify-content:space-between;padding:8px 0;color:var(--sub);font-size:13px}.row b{color:#fff;font-weight:400}
+.cat{background:var(--card2);border-radius:10px;padding:13px;margin-top:6px}
+.lnk{display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--line)}.lnk:last-child{border:0}
+.spec{max-width:460px;background:#181818;border-radius:16px;padding:18px 20px}.spec h3{margin:0 0 10px;color:#fff;font-size:15px}.spec table{width:100%;border-collapse:collapse;font-size:13px}.spec td{padding:5px 0;border-bottom:1px solid #262626;vertical-align:top}.spec td:first-child{color:#999;width:42%}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px;border:1px solid #444}
+
+.donut{background:#1e1e1e;display:flex;align-items:center;justify-content:space-between;padding:14px 18px}.ar{font-size:26px;color:#aaa}
+.tot{background:#0e0e0e;display:flex;justify-content:space-between;align-items:center;padding:16px 20px;font-size:19px}.tot b{font-weight:600}.ic2{color:#3ecfb0;font-size:12px}
+.seg2{display:flex;margin:12px 14px 4px;background:#161616;border-radius:12px;padding:3px}.seg2 span{flex:1;text-align:center;padding:8px;border-radius:10px;color:#8d8d92;font-size:14px}.seg2 .on{background:#2a2a2a;color:#fff}
+.clist{padding:4px 14px;overflow:auto;flex:1}.cr{display:flex;align-items:center;gap:14px;padding:11px 0}.cc{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:20px;flex:none}
+.cn{flex:1;font-size:15px}.cn i{font-style:normal;color:#fff;margin-left:2px}.cn em{font-style:normal;color:#8d8d92;font-size:13px;margin-left:6px}.ch{color:#8d8d92;font-size:20px}
+</style></head><body>
+<h1>Money в стиле maib — «Транзакции», «Детали», «Отчёт»</h1><div class="sub">Данные примера — из нашего Money. Список операций, детали, отчёт по категориям и правила дизайна.</div>
+<div class="wrap">
+
+<div class="phone"><div class="sb"><span>9:41</span><span>4G ▮</span></div>
+<div class="top"><span class="ic">←</span><h2>Транзакции</h2><span class="ic" style="text-align:right">▥</span></div>
+<div class="flt"><div class="sel"><span>Все счета</span><span>⌄</span></div><span class="fi">○</span><span class="fi">▽</span></div>
+<div class="mon"><span>Сентябрь 2026</span><i>⌄</i></div>
+<div class="list">
+<div class="promo"><div class="dot"></div><div><b>Итоги месяца</b><small>В этом месяце 14 расходов и 11 доходов</small></div><span class="x">×</span></div>
+<div class="tx"><div class="ic">☕</div><div class="m"><b>Кофе</b><small>Сегодня, 12:00 · Кэш</small></div><div class="a">40.00<u>MDL</u></div></div>
+<div class="tx in"><div class="ic">💰</div><div class="m"><b>ЗП Chikapulya</b><small>Сегодня, 12:00 · Мои деньги</small></div><div class="a">+677.00<u>MDL</u></div></div>
+<div class="tx"><div class="ic">⭐</div><div class="m"><b>развлечение</b><small>Вчера, 12:00 · Мои деньги</small></div><div class="a">1 700.00<u>MDL</u></div></div>
+<div class="tx"><div class="ic">⇄</div><div class="m"><b>Перевод на Кэш</b><small>14.09.2026 · Мои деньги</small></div><div class="a">500.00<u>MDL</u></div></div>
+<div class="tx dec"><div class="ic">🏠</div><div class="m"><b>Дом</b><small>14.09.2026 · Кэш</small></div><div class="a">7 600.00<u>MDL</u><small>Отменено</small></div></div>
+<div class="tx"><div class="ic">🍴</div><div class="m"><b>Обеды</b><small>09.09.2026 · Кэш</small></div><div class="a">80.00<u>MDL</u></div></div>
+<div class="tx in"><div class="ic">☕</div><div class="m"><b>Чай Chikapulya</b><small>06.09.2026 · Кэш</small></div><div class="a">+730.00<u>MDL</u></div></div>
+</div>
+<div class="tabs"><div><span>−</span>Расходы</div><div><span>+</span>Доходы</div><div><span>🏦</span>Счета</div><div class="on"><span>🧾</span>Лента</div><div><span>≡</span>Меню</div></div></div>
+
+<div class="phone"><div class="sb"><span>9:41</span><span>4G ▮</span></div>
+<div class="top"><span class="ic">←</span><h2>Детали</h2><span></span></div>
+<div class="hero"><div class="d">14.09.2026 • 12:00 ✓</div><div class="big"><b>7 600</b>.00 <u>MDL</u></div><div class="bal"><span>Остаток после операции:</span><b style="color:#fff">−4 734.00 MDL</b></div></div>
+<div class="box"><div class="nm"><div class="tx" style="padding:0;border:0"><div class="ic" style="width:38px;height:38px">🏠</div></div>Дом</div>
+<div class="row"><span>Счёт</span><b>Кэш · MDL</b></div><div class="row"><span>Заметка</span><b>оплата половины долга по отоплению</b></div>
+<div style="color:#fff;margin-top:8px">Категория</div><div class="cat">Дом</div></div>
+<div class="box" style="padding:4px 16px"><div class="lnk"><span>📎 Фото и файлы</span><span>›</span></div><div class="lnk"><span>✎ Изменить</span><span>›</span></div><div class="lnk" style="color:var(--red)"><span>🗑 Удалить</span><span>›</span></div></div>
+</div>
+
+
+<div class="phone"><div class="sb"><span>9:41</span><span>4G ▮</span></div>
+<div class="top"><span class="ic">←</span><h2>Отчёт</h2><span class="ic" style="text-align:right;color:#3ecfb0">⚙</span></div>
+<div class="donut"><span class="ar">‹</span><svg viewBox="0 0 200 200" width="190" height="190"><circle r="78" cx="100" cy="100" fill="none" stroke="#4fa3ff" stroke-width="16" stroke-dasharray="212.4 277.7" stroke-dashoffset="0.0" transform="rotate(-90 100 100)"/><circle r="78" cx="100" cy="100" fill="none" stroke="#a06be8" stroke-width="16" stroke-dasharray="181.4 308.7" stroke-dashoffset="-214.4" transform="rotate(-90 100 100)"/><circle r="78" cx="100" cy="100" fill="none" stroke="#e94f8a" stroke-width="16" stroke-dasharray="55.9 434.1" stroke-dashoffset="-397.7" transform="rotate(-90 100 100)"/><circle r="78" cx="100" cy="100" fill="none" stroke="#3fc27a" stroke-width="16" stroke-dasharray="19.2 470.9" stroke-dashoffset="-455.7" transform="rotate(-90 100 100)"/><circle r="78" cx="100" cy="100" fill="none" stroke="#ff9a3c" stroke-width="16" stroke-dasharray="7.9 482.2" stroke-dashoffset="-476.8" transform="rotate(-90 100 100)"/><circle r="78" cx="100" cy="100" fill="none" stroke="#f0c9a0" stroke-width="16" stroke-dasharray="0.3 489.8" stroke-dashoffset="-486.7" transform="rotate(-90 100 100)"/><circle r="78" cx="100" cy="100" fill="none" stroke="#8d8d92" stroke-width="16" stroke-dasharray="-0.9 491.0" stroke-dashoffset="-489.0" transform="rotate(-90 100 100)"/><circle r="62" cx="100" cy="100" fill="#2a2a2a"/><text x="100" y="106" text-anchor="middle" fill="#fff" font-size="15">Сентябрь</text></svg><span class="ar">›</span></div>
+<div class="tot"><span></span><b>17 374.00 MDL</b><span class="ic2">▯▯▯</span></div>
+<div class="seg2"><span class="on">Расходы</span><span>Доходы</span></div>
+<div class="clist"><div class="cr"><span class="cc" style="background:#4fa3ff">🏠</span><span class="cn">Дом <i>44%</i> <em>7 600.00 MDL</em></span><span class="ch">›</span></div><div class="cr"><span class="cc" style="background:#a06be8">📚</span><span class="cn">USM <i>37%</i> <em>6 500.00 MDL</em></span><span class="ch">›</span></div><div class="cr"><span class="cc" style="background:#e94f8a">⭐</span><span class="cn">развлечение <i>12%</i> <em>2 054.00 MDL</em></span><span class="ch">›</span></div><div class="cr"><span class="cc" style="background:#3fc27a">🏥</span><span class="cn">Аптека <i>4%</i> <em>750.00 MDL</em></span><span class="ch">›</span></div><div class="cr"><span class="cc" style="background:#ff9a3c">🏋️</span><span class="cn">Спорт <i>2%</i> <em>350.00 MDL</em></span><span class="ch">›</span></div><div class="cr"><span class="cc" style="background:#f0c9a0">🍴</span><span class="cn">Обеды <i>0%</i> <em>80.00 MDL</em></span><span class="ch">›</span></div><div class="cr"><span class="cc" style="background:#8d8d92">☕</span><span class="cn">Кофе <i>0%</i> <em>40.00 MDL</em></span><span class="ch">›</span></div></div>
+<div class="tabs"><div><span>−</span>Расходы</div><div><span>+</span>Доходы</div><div><span>🏦</span>Счета</div><div class="on"><span>🧾</span>Лента</div><div><span>≡</span>Меню</div></div></div>
+<div class="spec"><h3>Дизайн-токены maib</h3><table>
+<tr><td>Фон</td><td><span class="sw" style="background:#000"></span>#000 чистый чёрный</td></tr>
+<tr><td>Карточки, выбор счёта</td><td><span class="sw" style="background:#161616"></span>#161616, радиус 12–16</td></tr>
+<tr><td>Иконка операции</td><td><span class="sw" style="background:#262626"></span>круг 46px, цвет #262626</td></tr>
+<tr><td>Расход</td><td>белый, без знака, «MDL» мелко серым</td></tr>
+<tr><td>Доход</td><td><span class="sw" style="background:#3ecf8e"></span>зелёный со знаком +</td></tr>
+<tr><td>Отклонено/отмена</td><td><span class="sw" style="background:#ff6b6b"></span>красная сумма + подпись</td></tr>
+<tr><td>Акцент (промо)</td><td><span class="sw" style="background:#ff8a2a"></span>оранжевый #ff8a2a</td></tr>
+<tr><td>Шапка</td><td>стрелка назад, заголовок по центру, справа иконка графика</td></tr>
+<tr><td>Фильтры</td><td>выпадающий список «Все счета», иконки поиска и фильтра</td></tr>
+<tr><td>Месяц</td><td>плашка #161616 со стрелкой, закреплена сверху</td></tr>
+<tr><td>Строка</td><td>иконка, название (15px), под ней дата и счёт (12px серым), сумма справа</td></tr>
+<tr><td>Дата</td><td>«Сегодня, 12:00», «Вчера», дальше 14.09.2026</td></tr>
+<tr><td>Детали</td><td>тёмно-синий градиент сверху, крупная сумма (копейки тонко), остаток после операции, карточки «Счёт / Категория», ссылки</td></tr>
+<tr><td>Разделители</td><td>1px #232323 без отступа слева у иконки</td></tr>
+</table></div>
+</div></body></html>

@@ -114,3 +114,10 @@ html{-webkit-text-size-adjust:100%}input,select{font-size:16px}
 .frow input[type=number]{color:var(--text)}
 .delbtn{width:100%;padding:13px;color:#ff453a;font-size:16px}
 @media(max-width:479px){.phone{position:fixed;top:0;left:0;right:0;bottom:calc(-1 * env(safe-area-inset-bottom));height:auto;max-width:none}html,body{background:var(--card)!important}}
+
+/* maib-style line icons: dark circle, press animation */
+.ic{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--ic,#262626);color:var(--text);margin-right:12px;flex:none;transition:transform .18s cubic-bezier(.3,1.6,.5,1)}
+.row:active .ic,.cgrid4 button:active span,.line:active .ic{transform:scale(.86)}
+.cgrid4 span{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:var(--ic,#262626);font-size:22px;transition:transform .18s cubic-bezier(.3,1.6,.5,1)}
+.lnk{display:flex;align-items:center}.lnk .ic{width:34px;height:34px;margin-right:10px}
+:root[data-theme=light]{--ic:#eceef2}

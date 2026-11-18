@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import Ico from './icons.jsx'
 import { seed } from './seed.js'
 import { pull, push, getToken, setToken, clearToken } from './sync.js'
 import { hashPw, randHex, fmt, uid, hm, evalExpr, press, periodRange, shiftAnchor, periodLabel, toCSV, startOfDay, CURRENCIES, SYM, pad } from './util.js'
@@ -133,7 +134,7 @@ function Entry({ ctx, type }) {
           const c = catOf(t.categoryId), a = accOf(t.accountId), isOpen = open === t.id
           return (
             <div key={t.id} className="row opr" onClick={() => (isOpen ? openEdit(t.id) : setOpen(t.id))}>
-              <span className="ic">{c?.icon}</span>
+              <span className="ic"><Ico icon={c?.icon} /></span>
               <div className="mid"><div>{c?.name}</div>{isOpen ? <span className="chip">{a?.name}</span> : <small>{a?.name}{t.note && <u> {t.note}</u>}</small>}
                 {isOpen && <div className="acts" onClick={(e) => e.stopPropagation()}>
                   <button onClick={() => openEdit(t.id)} title="Изменить">✎</button>
@@ -174,7 +175,7 @@ function Entry({ ctx, type }) {
           <div className="cgrid4">
             <button onClick={() => setSheet('all')}><span>☰</span>Все категории</button>
             <button onClick={() => { setQ(''); setSheet('search') }}><span>🔍</span>Быстрый поиск</button>
-            {tiles.map((c) => <button key={c.id} onClick={() => save(c.id)}><span>{c.icon}</span>{c.name}</button>)}
+            {tiles.map((c) => <button key={c.id} onClick={() => save(c.id)}><span><Ico icon={c.icon} size={26} /></span>{c.name}</button>)}
           </div>
         )}
         <Day k={today} label={`${word} сегодня`} />
@@ -187,7 +188,7 @@ function Entry({ ctx, type }) {
             <h3>{sheet === 'all' ? 'Все категории' : 'Быстрый поиск'} · {fmt(total, accSel?.currency)}</h3>
             {sheet === 'search' && <input className="num qs" autoFocus placeholder="Название категории" value={q} onChange={(e) => setQ(e.target.value)} />}
             <div className="cgrid">
-              {(sheet === 'all' ? freq : found).map((c) => <button key={c.id} onClick={() => save(c.id)}><span>{c.icon}</span>{c.name}</button>)}
+              {(sheet === 'all' ? freq : found).map((c) => <button key={c.id} onClick={() => save(c.id)}><span><Ico icon={c.icon} size={26} /></span>{c.name}</button>)}
               {sheet === 'all' && <button className="add" onClick={addCat}><span>＋</span>Новая</button>}
             </div>
           </div>
@@ -306,7 +307,7 @@ function Report({ ctx }) {
             {data.map((d) => (
               <div key={d.id} className="rep">
                 <div className="bar" style={{ width: `${(d.v / (data[0].v || 1)) * 100}%`, background: d.color }} />
-                <div className="line"><span>{d.icon} {d.name}</span><span><b>{Math.round((d.v / total) * 100)}%</b><br /><i className={type}>{fmt(d.v, 'MDL')}</i></span></div>
+                <div className="line"><span className="lnk"><i className="ic"><Ico icon={d.icon} size={18} /></i> {d.name}</span><span><b>{Math.round((d.v / total) * 100)}%</b><br /><i className={type}>{fmt(d.v, 'MDL')}</i></span></div>
               </div>
             ))}
           </>
@@ -317,7 +318,7 @@ function Report({ ctx }) {
               const lim = s.budgets[c.id], sp = spentM(c.id), pct = lim ? Math.min(100, (sp / lim) * 100) : 0
               return (
                 <div key={c.id} className="bud" onClick={() => setLimit(c)}>
-                  <div className="line"><span>{c.icon} {c.name}</span><span>{lim ? <><b className={sp > lim ? 'expense' : ''}>{fmt(sp, 'MDL')}</b> / {fmt(lim, 'MDL')}</> : <small>{sp ? fmt(sp, 'MDL') + ' · ' : ''}лимит не задан</small>}</span></div>
+                  <div className="line"><span className="lnk"><i className="ic"><Ico icon={c.icon} size={18} /></i> {c.name}</span><span>{lim ? <><b className={sp > lim ? 'expense' : ''}>{fmt(sp, 'MDL')}</b> / {fmt(lim, 'MDL')}</> : <small>{sp ? fmt(sp, 'MDL') + ' · ' : ''}лимит не задан</small>}</span></div>
                   {lim > 0 && <div className="track"><div style={{ width: pct + '%', background: sp > lim ? '#e53935' : '#4caf50' }} /></div>}
                 </div>
               )
@@ -445,7 +446,7 @@ function Feed({ ctx }) {
                 const c = catOf(t.categoryId), a = accOf(t.accountId)
                 return (
                   <div key={t.id} className="row" onClick={() => ctx.openEdit(t.id)}>
-                    <span className="ic">{c?.icon}</span>
+                    <span className="ic"><Ico icon={c?.icon} /></span>
                     <div className="mid"><div>{c?.name}</div><small>{a?.name}{t.note && <u> {t.note}</u>}</small></div>
                     <div className="rt"><b className={t.type}>{t.type === 'income' ? '' : '−'}{fmt(t.amount, a?.currency)}</b><small>{hm(t.ts)}</small></div>
                   </div>
@@ -555,7 +556,7 @@ function Recurring({ ctx }) {
       <Header title="Автоплатежи" back="menu" ctx={ctx} right={<button className="lnk" onClick={add}>＋</button>} />
       <div className="scroll">
         <p className="hint">Операция создаётся автоматически каждый месяц в выбранный день (при открытии приложения).</p>
-        {s.recurring.map((r) => <div key={r.id} className="row" onClick={() => confirm('Удалить автоплатёж?') && up((p) => ({ recurring: p.recurring.filter((x) => x.id !== r.id) }))}><span className="ic">{cat(r.categoryId)?.icon}</span><div className="mid"><div>{cat(r.categoryId)?.name}</div><small>каждый месяц, {r.day}-го {r.note && '· ' + r.note}</small></div><div className="rt"><b className={r.type}>{fmt(r.amount)}</b></div></div>)}
+        {s.recurring.map((r) => <div key={r.id} className="row" onClick={() => confirm('Удалить автоплатёж?') && up((p) => ({ recurring: p.recurring.filter((x) => x.id !== r.id) }))}><span className="ic"><Ico icon={cat(r.categoryId)?.icon} /></span><div className="mid"><div>{cat(r.categoryId)?.name}</div><small>каждый месяц, {r.day}-го {r.note && '· ' + r.note}</small></div><div className="rt"><b className={r.type}>{fmt(r.amount)}</b></div></div>)}
         {!s.recurring.length && <p className="empty">Автоплатежей нет.</p>}
       </div>
     </>
