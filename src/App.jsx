@@ -478,6 +478,7 @@ function Feed({ ctx }) {
   const del = (t) => confirm(t.type === 'transfer' ? 'Удалить перевод?' : 'Удалить операцию?') && up((p) => ({ transactions: p.transactions.filter((x) => x.id !== t.id) }))
   if ((s.style || 'maib') === 'maib') {
     const ql = q.trim().toLowerCase()
+    const net = list.reduce((a, t) => a + conv(t, effect(t)), 0)
     const vis = list.filter((t) => (tf === 'all' || t.type === tf) && (!ql || ((t.note || '') + ' ' + (catOf(t.categoryId)?.name || '')).toLowerCase().includes(ql)))
     const dstr = (ts) => { const d = new Date(ts); return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}` }
     const TF = ['all', 'expense', 'income', 'transfer'], TFL = { all: 'Все операции', expense: 'Расходы', income: 'Доходы', transfer: 'Переводы' }
@@ -497,7 +498,7 @@ function Feed({ ctx }) {
           {showQ && <input className="mf-search" autoFocus placeholder="Поиск по заметке и категории" value={q} onChange={(e) => setQ(e.target.value)} />}
           {tf !== 'all' && <div className="mf-add"><button onClick={() => setTf('all')}>Фильтр: {TFL[tf]} ✕</button></div>}
           {showAdd && <div className="mf-add"><button onClick={() => { setShowAdd(false); addOp('expense') }}>− Расход</button><button onClick={() => { setShowAdd(false); addOp('income') }}>+ Доход</button><button onClick={() => { setShowAdd(false); openTransfer(ctx, accF === 'all' ? undefined : accF) }}>⇄ Перевод</button></div>}
-          <div className="mf-month"><button onClick={() => setAnchor((a) => shiftAnchor('month', a, -1))}><ChevronLeft size={20} /></button><b>{new Date(anchor).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</b><span>{fmt(total, cur)}<button onClick={() => setAnchor((a) => shiftAnchor('month', a, 1))}><ChevronRight size={20} /></button></span></div>
+          <div className="mf-month"><button onClick={() => setAnchor((a) => shiftAnchor('month', a, -1))}><ChevronLeft size={20} /></button><b>{new Date(anchor).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}</b><span>{list.length ? (net > 0 ? '+' : '') + fmt(net, cur) : ''}<button onClick={() => setAnchor((a) => shiftAnchor('month', a, 1))}><ChevronRight size={20} /></button></span></div>
           {vis.map((t) => {
             const xf = t.type === 'transfer', c = catOf(t.categoryId), a = accOf(xf ? t.fromAccountId : t.accountId), ta = accOf(t.toAccountId)
             return (
