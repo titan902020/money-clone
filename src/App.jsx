@@ -61,7 +61,7 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
       {main && (
         <nav className="tabs">
           {[['expense', ArrowDownRight, 'Расходы'], ['income', ArrowUpRight, 'Доходы'], ['accounts', Landmark, 'Счета'], ['feed', ReceiptText, 'Лента'], ['menu', MenuIcon, 'Меню']].map(([k, I, l]) => (
-            <button key={k} className={route === k ? 'on' : ''} onClick={() => setRoute(k)}><span key={route === k ? 'a' : 'b'}>{s.style === 'maib' ? <I size={24} strokeWidth={route === k ? 2.2 : 1.75} /> : <em>{EM[k]}</em>}</span>{l}</button>
+            <button key={k} className={route === k ? 'on' : ''} onClick={() => setRoute(k)}><span key={route === k ? 'a' : 'b'}>{(s.style || 'maib') === 'maib' ? <I size={24} strokeWidth={route === k ? 2.2 : 1.75} /> : <em>{EM[k]}</em>}</span>{l}</button>
           ))}
         </nav>
       )}
@@ -344,7 +344,7 @@ function Report({ ctx }) {
             </div>
             <div className="seg small"><button className={type === 'expense' ? 'on' : ''} onClick={() => setType('expense')}>Расходы</button><button className={type === 'income' ? 'on' : ''} onClick={() => setType('income')}>Доходы</button></div>
             <div className="sum"><h2 className={type}>Всего {type === 'expense' ? 'потрачено' : 'получено'}: {fmt(total, 'MDL')}</h2><small>в среднем: {fmt(total / days, 'MDL')} в день</small></div>
-            {s.style === 'maib' ? (<>
+            {(s.style || 'maib') === 'maib' ? (<>
             <div className="vtog"><button className={view === 'donut' ? 'on' : ''} onClick={() => setView('donut')}><PieChart size={18} /></button><button className={view === 'bars' ? 'on' : ''} onClick={() => setView('bars')}><BarChart3 size={18} /></button>
               {view === 'bars' && <><button className={bu === 'month' ? 'on' : ''} onClick={() => { setBu('month'); setKind('month') }}>Месяцы</button><button className={bu === 'day' ? 'on' : ''} onClick={() => { setBu('day'); setKind('month') }}>Дни</button></>}</div>}
             {view === 'donut'
