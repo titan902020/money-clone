@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Ico from './icons.jsx'
+import { ArrowDownRight, ArrowUpRight, Landmark, ReceiptText, Menu as MenuIcon, ChevronRight, ChevronLeft, BarChart3, PieChart } from 'lucide-react'
 import { seed } from './seed.js'
 import { pull, push, getToken, setToken, clearToken } from './sync.js'
 import { hashPw, randHex, fmt, uid, hm, evalExpr, press, periodRange, shiftAnchor, periodLabel, toCSV, startOfDay, CURRENCIES, SYM, pad } from './util.js'
@@ -59,8 +60,8 @@ function Main({ s, setS, sync, onLogout, onDisconnect }) {
       {route === 'settings' && <Settings ctx={ctx} />}
       {main && (
         <nav className="tabs">
-          {[['expense', '➖', 'Расходы'], ['income', '➕', 'Доходы'], ['accounts', '🏦', 'Счета'], ['feed', '🧾', 'Лента'], ['menu', '☰', 'Меню']].map(([k, i, l]) => (
-            <button key={k} className={route === k ? 'on' : ''} onClick={() => setRoute(k)}><span>{i}</span>{l}</button>
+          {[['expense', ArrowDownRight, 'Расходы'], ['income', ArrowUpRight, 'Доходы'], ['accounts', Landmark, 'Счета'], ['feed', ReceiptText, 'Лента'], ['menu', MenuIcon, 'Меню']].map(([k, I, l]) => (
+            <button key={k} className={route === k ? 'on' : ''} onClick={() => setRoute(k)}><span key={route === k ? 'a' : 'b'}><I size={24} strokeWidth={route === k ? 2.2 : 1.75} /></span>{l}</button>
           ))}
         </nav>
       )}
@@ -245,20 +246,33 @@ function Edit({ ctx }) {
   )
 }
 
-function Pie({ data }) {
-  const total = data.reduce((a, d) => a + d.v, 0)
-  if (!total) return <div className="piee">нет данных</div>
-  let a0 = -Math.PI / 2
-  const R = 100
+function Donut({ data, center, onPrev, onNext }) {
+  const total = data.reduce((a, d) => a + d.v, 0), R = 70, C = 2 * Math.PI * R
+  let off = 0
   return (
-    <svg viewBox="-110 -110 220 220" className="pie">
-      {data.length === 1 ? <circle r={R} fill={data[0].color} /> : data.map((d) => {
-        const a1 = a0 + (d.v / total) * Math.PI * 2, large = a1 - a0 > Math.PI ? 1 : 0
-        const p = `M0 0 L${R * Math.cos(a0)} ${R * Math.sin(a0)} A${R} ${R} 0 ${large} 1 ${R * Math.cos(a1)} ${R * Math.sin(a1)}Z`
-        const mid = (a0 + a1) / 2; a0 = a1
-        return <g key={d.id}><path d={p} fill={d.color} stroke="var(--bg)" strokeWidth="1.5" />{d.v / total > 0.07 && <text x={R * 0.62 * Math.cos(mid)} y={R * 0.62 * Math.sin(mid)} textAnchor="middle" dominantBaseline="middle" fontSize="11" fill="#222">{d.name}</text>}</g>
-      })}
-    </svg>
+    <div className="donut">
+      <button onClick={onPrev}><ChevronLeft size={22} /></button>
+      <svg viewBox="-90 -90 180 180">
+        <circle r={R} fill="none" stroke="#2a2a2a" strokeWidth="16" />
+        {total > 0 && data.map((d) => { const len = (d.v / total) * C, el = <circle key={d.id} r={R} fill="none" stroke={d.color} strokeWidth="16" strokeDasharray={`${Math.max(len - 2, 0.5)} ${C}`} strokeDashoffset={-off} transform="rotate(-90)" />; off += len; return el })}
+        <text textAnchor="middle" dominantBaseline="middle" fontSize="15" fill="var(--text)">{center}</text>
+      </svg>
+      <button onClick={onNext}><ChevronRight size={22} /></button>
+    </div>
+  )
+}
+
+function Bars({ items, sel, onPick }) {
+  const max = Math.max(...items.map((i) => i.v), 1)
+  return (
+    <div className="bars">
+      {items.map((i) => (
+        <button key={i.key} onClick={() => onPick(i.date)}>
+          <div className="col"><div className={sel === i.key ? 'on' : ''} style={{ height: `${Math.max((i.v / max) * 100, 3)}%` }} /></div>
+          <small>{i.label}</small>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -269,6 +283,8 @@ function Report({ ctx }) {
   const [anchor, setAnchor] = useState(new Date())
   const [type, setType] = useState('expense')
   const [accF, setAccF] = useState('all')
+  const [view, setView] = useState('donut')
+  const [bu, setBu] = useState('month')
   const [from, to] = periodRange(kind, anchor)
   const accs = accF === 'all' ? s.accounts.filter((a) => !a.archived) : s.accounts.filter((a) => a.id === accF)
   const accMap = Object.fromEntries(s.accounts.map((a) => [a.id, a]))
@@ -276,6 +292,12 @@ function Report({ ctx }) {
   const by = {}; inP.forEach((t) => { by[t.categoryId] = (by[t.categoryId] || 0) + toBase(s, t.amount, accMap[t.accountId]?.currency) })
   const data = Object.entries(by).map(([id, v]) => { const c = s.categories.find((x) => x.id === id) || {}; return { id, v, name: c.name, icon: c.icon, color: c.color } }).sort((a, b) => b.v - a.v)
   const total = data.reduce((a, d) => a + d.v, 0)
+  const sumIn = (f, t) => s.transactions.filter((x) => x.ts >= f && x.ts < t && x.type === type && accs.some((a) => a.id === x.accountId)).reduce((q, x) => q + toBase(s, x.amount, accMap[x.accountId]?.currency), 0)
+  const MS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+  const barItems = bu === 'month'
+    ? Array.from({ length: 9 }, (_, i) => { const d = new Date(anchor.getFullYear(), anchor.getMonth() - 8 + i, 1); const [f, t] = periodRange('month', d); return { key: f.getTime(), date: d, label: MS[d.getMonth()], v: sumIn(f, t) } })
+    : Array.from({ length: new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate() }, (_, i) => { const d = new Date(anchor.getFullYear(), anchor.getMonth(), i + 1); const [f, t] = periodRange('day', d); return { key: f.getTime(), date: d, label: i % 3 === 0 ? String(i + 1) : '', v: sumIn(f, t) } })
+  const barSel = bu === 'month' ? new Date(anchor.getFullYear(), anchor.getMonth(), 1).getTime() : startOfDay(new Date(anchor)).getTime()
   const days = Math.max(1, Math.round((Math.min(to, new Date()) - from) / 864e5) || 1)
   const accSum = accs.reduce((sum, a) => sum + toBase(s, balances(s)[a.id], a.currency), 0)
   const setLimit = (c) => setModal({
@@ -303,11 +325,17 @@ function Report({ ctx }) {
             </div>
             <div className="seg small"><button className={type === 'expense' ? 'on' : ''} onClick={() => setType('expense')}>Расходы</button><button className={type === 'income' ? 'on' : ''} onClick={() => setType('income')}>Доходы</button></div>
             <div className="sum"><h2 className={type}>Всего {type === 'expense' ? 'потрачено' : 'получено'}: {fmt(total, 'MDL')}</h2><small>в среднем: {fmt(total / days, 'MDL')} в день</small></div>
-            <Pie data={data} />
+            <div className="vtog"><button className={view === 'donut' ? 'on' : ''} onClick={() => setView('donut')}><PieChart size={18} /></button><button className={view === 'bars' ? 'on' : ''} onClick={() => setView('bars')}><BarChart3 size={18} /></button>
+              {view === 'bars' && <><button className={bu === 'month' ? 'on' : ''} onClick={() => { setBu('month'); setKind('month') }}>Месяцы</button><button className={bu === 'day' ? 'on' : ''} onClick={() => { setBu('day'); setKind('month') }}>Дни</button></>}</div>
+            {view === 'donut'
+              ? <Donut data={data} center={new Date(anchor).toLocaleDateString('ru-RU', { month: 'long' })} onPrev={() => setAnchor((a) => shiftAnchor('month', a, -1))} onNext={() => setAnchor((a) => shiftAnchor('month', a, 1))} />
+              : <Bars items={barItems} sel={barSel} onPick={(d) => setAnchor(d)} />}
             {data.map((d) => (
-              <div key={d.id} className="rep">
-                <div className="bar" style={{ width: `${(d.v / (data[0].v || 1)) * 100}%`, background: d.color }} />
-                <div className="line"><span className="lnk"><i className="ic"><Ico icon={d.icon} size={18} /></i> {d.name}</span><span><b>{Math.round((d.v / total) * 100)}%</b><br /><i className={type}>{fmt(d.v, 'MDL')}</i></span></div>
+              <div key={d.id} className="catrow">
+                <i className="cico" style={{ background: d.color }}><Ico icon={d.icon} size={20} /></i>
+                <span className="cn">{d.name} <b>{Math.round((d.v / total) * 100)}%</b></span>
+                <span className="ca">{fmt(d.v, 'MDL')}</span>
+                <ChevronRight size={18} className="chev" />
               </div>
             ))}
           </>
