@@ -271,7 +271,7 @@ function Donut({ data, center, onPrev, onNext }) {
   return (
     <div className="donut">
       <button onClick={onPrev}><ChevronLeft size={22} /></button>
-      <svg viewBox="-90 -90 180 180">
+      <svg viewBox="-90 -90 180 180" width="190" height="190" style={{ flex: "none" }}>
         <circle r={R} fill="none" stroke="#2a2a2a" strokeWidth="16" />
         {total > 0 && data.map((d) => { const len = (d.v / total) * C, el = <circle key={d.id} r={R} fill="none" stroke={d.color} strokeWidth="16" strokeDasharray={`${Math.max(len - 2, 0.5)} ${C}`} strokeDashoffset={-off} transform="rotate(-90)" />; off += len; return el })}
         <text textAnchor="middle" dominantBaseline="middle" fontSize="15" fill="var(--text)">{center}</text>
@@ -346,7 +346,7 @@ function Report({ ctx }) {
             <div className="sum"><h2 className={type}>Всего {type === 'expense' ? 'потрачено' : 'получено'}: {fmt(total, 'MDL')}</h2><small>в среднем: {fmt(total / days, 'MDL')} в день</small></div>
             {(s.style || 'maib') === 'maib' ? (<>
             <div className="vtog"><button className={view === 'donut' ? 'on' : ''} onClick={() => setView('donut')}><PieChart size={18} /></button><button className={view === 'bars' ? 'on' : ''} onClick={() => setView('bars')}><BarChart3 size={18} /></button>
-              {view === 'bars' && <><button className={bu === 'month' ? 'on' : ''} onClick={() => { setBu('month'); setKind('month') }}>Месяцы</button><button className={bu === 'day' ? 'on' : ''} onClick={() => { setBu('day'); setKind('month') }}>Дни</button></>}</div>}
+              {view === 'bars' && <><button className={bu === 'month' ? 'on' : ''} onClick={() => { setBu('month'); setKind('month') }}>Месяцы</button><button className={bu === 'day' ? 'on' : ''} onClick={() => { setBu('day'); setKind('month') }}>Дни</button></>}</div>
             {view === 'donut'
               ? <Donut data={data} center={new Date(anchor).toLocaleDateString('ru-RU', { month: 'long' })} onPrev={() => setAnchor((a) => shiftAnchor('month', a, -1))} onNext={() => setAnchor((a) => shiftAnchor('month', a, 1))} />
               : <Bars items={barItems} sel={barSel} onPick={(d) => setAnchor(d)} />}
